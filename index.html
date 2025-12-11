@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PEth & BAC Simulator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="layout">
+    <section class="panel">
+      <h1>PEth & BAC Simulator</h1>
+      <p class="lead">Estimate blood alcohol curves, PEth formation, and decay using a simplified pharmacokinetic model.</p>
+      <form id="sim-form">
+        <div class="section-title">Person</div>
+        <label>Sex</label>
+        <select id="sex" required>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+        </select>
+        <label>Weight (kg)</label>
+        <input id="weight" type="number" min="30" max="200" step="1" value="75" required />
+        <label>Age (years)</label>
+        <input id="age" type="number" min="18" max="90" step="1" value="35" required />
+
+        <div class="section-title">Drinking sessions</div>
+        <div id="sessions" class="sessions"></div>
+        <button type="button" class="btn" id="add-session">+ Add drinking period</button>
+        <button type="submit" class="btn">Run simulation</button>
+      </form>
+      <div class="note">
+        Model blends Widmark style BAC with first-order absorption and elimination. PEth synthesis is proportional to BAC and decays with a multi-day half-life. See README for assumptions and citations.
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="cards">
+        <div class="stat">
+          <h3>Peak BAC</h3>
+          <div class="value" id="peak-bac">-</div>
+        </div>
+        <div class="stat">
+          <h3>Time over 0.5‰</h3>
+          <div class="value" id="time-over">-</div>
+        </div>
+        <div class="stat">
+          <h3>Peak PEth</h3>
+          <div class="value" id="peak-peth">-</div>
+        </div>
+      </div>
+      <div class="grid">
+        <div>
+          <h3 class="section-title">Blood alcohol (‰)</h3>
+          <canvas id="bac-chart" width="600" height="260"></canvas>
+        </div>
+        <div>
+          <h3 class="section-title">PEth (ng/mL)</h3>
+          <canvas id="peth-chart" width="600" height="260"></canvas>
+        </div>
+      </div>
+      <div class="note" id="model-note"></div>
+    </section>
+  </main>
+
+  <script src="main.js"></script>
+</body>
+</html>
