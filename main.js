@@ -5,7 +5,12 @@ const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
 const calcModal = document.getElementById('calc-modal');
 const calcForm = document.getElementById('calc-form');
 const calcClose = document.getElementById('calc-close');
+const langSelect = document.getElementById('lang-select');
+const langFlag = document.getElementById('lang-flag');
 let activeGramsInput = null;
+
+let currentLang = detectLang();
+let lastResult = null;
 
 const defaultSessions = [
   { start: '2025-01-01T19:00', end: '2025-01-01T21:00', ml: 700*0.4  }, // 70 cL of 40% whiskey
@@ -17,18 +22,18 @@ function createSessionRow(session) {
   wrapper.className = 'session-row';
   wrapper.innerHTML = `
     <div>
-      <label>Start</label>
+      <label data-i18n="start">Start</label>
       <input type="datetime-local" class="start" value="${session.start}" required />
     </div>
     <div>
-      <label>End</label>
+      <label data-i18n="end">End</label>
       <input type="datetime-local" class="end" value="${session.end}" required />
     </div>
     <div>
-      <label>Ethanol (mL)</label>
+      <label data-i18n="ethanolLabel">${translations[currentLang].ethanolLabel}</label>
       <div class="ethanol-input">
         <input type="number" class="grams" min="0.1" step="0.1" value="${session.ml}" required />
-        <button type="button" class="calc-grams" aria-label="Calculate mL from volume and %">Calc</button>
+        <button type="button" class="calc-grams" aria-label="Calculate mL from volume and %">${translations[currentLang].calcBtn}</button>
       </div>
     </div>
     <div style="align-self:center;">
@@ -47,7 +52,7 @@ addSessionBtn.addEventListener('click', () => {
   const now = new Date();
   const start = new Date(now.getTime() + 60 * 60 * 1000);
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-  createSessionRow({ start: toInputValue(start), end: toInputValue(end), grams: 40 });
+  createSessionRow({ start: toInputValue(start), end: toInputValue(end), ml: 40 });
 });
 
 form.addEventListener('submit', (e) => {
@@ -55,6 +60,10 @@ form.addEventListener('submit', (e) => {
   const params = getParams();
   const result = runSim(params);
   render(result);
+});
+
+langSelect.addEventListener('change', () => {
+  applyTranslations(langSelect.value);
 });
 
 function toInputValue(date) {
@@ -79,6 +88,8 @@ function getParams() {
 
 function render(result) {
   if (!result) return;
+  lastResult = result;
+  const t = translations[currentLang] || translations.en;
   const { timeline } = result;
   const peakBAC = Math.max(...timeline.map((t) => t.bac));
   const timeOver = timeline.filter((t) => t.bac >= 0.5).length * 5; // minutes
@@ -91,8 +102,8 @@ function render(result) {
   const bacPoints = timeline.map((t) => ({ x: t.time, y: t.bac }));
   const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
 
-  const bacOptions = { color: '#1c7ed6', yLabel: '‰', warning: 0.5, valueFormatter: (v) => `${v.toFixed(3)}‰` };
-  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L` };
+  const bacOptions = { color: '#1c7ed6', yLabel: '‰', warning: 0.5, valueFormatter: (v) => `${v.toFixed(3)}‰`, axisLabel: t.axisTime };
+  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime };
 
   drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions);
   drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions);
@@ -100,11 +111,16 @@ function render(result) {
   enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions);
   enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions);
 
-  const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h (volume includes 1.055 blood-water factor), PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈${result.params.decayHalfLifeDays.toFixed(2)} days.`;
+  const note = t.modelNote({
+    r: result.params.r.toFixed(2),
+    elim: result.params.elimPermillePerHour.toFixed(2),
+    form: result.params.formationRateNgPerMlPerHourAt1Permille,
+    half: result.params.decayHalfLifeDays.toFixed(2),
+  });
   document.getElementById('model-note').textContent = note;
 }
 
-function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, highlight) {
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel }, highlight) {
   const { ctx, w, h } = ensureCanvasSize(canvas);
   ctx.clearRect(0, 0, w, h);
   if (!points.length) return;
@@ -191,7 +207,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
   ctx.font = '12px var(--sans)';
   ctx.fillText(yLabel, 6, padding.t + 12);
   ctx.textAlign = 'center';
-  ctx.fillText('Time', w / 2, h - 8);
+  ctx.fillText(axisLabel || 'Time', w / 2, h - 8);
 
   // Ticks on x
   ctx.fillStyle = '#6c7585';
@@ -339,3 +355,62 @@ function mlToGrams(ml, abv = 100) {
   // If ml is pure ethanol, abv=100; if ml is beverage volume, pass actual ABV.
   return ml * 0.789 * (abv / 100);
 }
+
+function applyTranslations(lang) {
+  const t = translations[lang] || translations.en;
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  langSelect.value = lang;
+  if (langFlag) {
+    const opt = langSelect.querySelector(`option[value="${lang}"]`);
+    langFlag.textContent = opt ? opt.dataset.flag || '' : '';
+  }
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  setText('title', t.title);
+  setText('lead', t.lead);
+  setText('lang-label', t.langLabel);
+  setText('person-title', t.personTitle);
+  setText('sex-label', t.sex);
+  setText('weight-label', t.weight);
+  setText('age-label', t.age);
+  setText('half-label', t.halfLife);
+  const halfHelpEl = document.getElementById('half-help');
+  if (halfHelpEl) halfHelpEl.title = t.halfHelp;
+  setText('sessions-title', t.sessionsTitle);
+  setText('add-session', t.addSession);
+  setText('run-btn', t.run);
+  setText('form-note', t.formNote);
+  setText('peak-bac-label', t.statPeakBAC);
+  setText('time-over-label', t.statTimeOver);
+  setText('peak-peth-label', t.statPeakPEth);
+  setText('bac-chart-label', t.chartBAC);
+  setText('peth-chart-label', t.chartPEth);
+  setText('calc-title', t.modalTitle);
+  setText('calc-volume-label', t.modalVolume);
+  setText('calc-abv-label', t.modalAbv);
+  setText('calc-apply', t.modalApply);
+  setText('calc-note', t.modalNote);
+  // Sex option labels
+  const sexSelect = document.getElementById('sex');
+  if (sexSelect && sexSelect.options.length >= 2) {
+    sexSelect.options[0].textContent = t.male;
+    sexSelect.options[1].textContent = t.female;
+  }
+  // Session row labels/buttons
+  document.querySelectorAll('[data-i18n="start"]').forEach((el) => { el.textContent = t.start; });
+  document.querySelectorAll('[data-i18n="end"]').forEach((el) => { el.textContent = t.end; });
+  document.querySelectorAll('[data-i18n="ethanolLabel"]').forEach((el) => { el.textContent = t.ethanolLabel; });
+  document.querySelectorAll('.calc-grams').forEach((el) => { el.textContent = t.calcBtn; });
+  if (lastResult) render(lastResult);
+}
+
+function detectLang() {
+  const nav = (navigator.language || 'en').slice(0, 2).toLowerCase();
+  return translations[nav] ? nav : 'en';
+}
+
+applyTranslations(currentLang);
+render(runSim(getParams()));

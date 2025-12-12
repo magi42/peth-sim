@@ -26,9 +26,41 @@ h1 {
   margin: 0 0 4px;
   letter-spacing: -0.02em;
 }
+.header-bar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
 p.lead {
-  margin: 0 0 24px;
+  margin: 0 0;
   color: var(--muted);
+}
+.lang-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+#lang-select {
+  appearance: none;
+  padding: 0px 0px 0px 0px;
+  border-radius: 10px;
+  border: none;
+  background: #fff;
+  font-size: 14px;
+  color: transparent;
+  text-shadow: none;
+  width: 40px;
+}
+#lang-select option {
+  color: #1d2733;
+}
+#lang-flag {
+  font-size: 20px;
+  position: absolute;
+  right: 10px;
+  pointer-events: none;
 }
 .layout {
   display: grid;
@@ -44,7 +76,7 @@ p.lead {
   border: 1px solid #dfe7f5;
 }
 .section-title {
-  margin-top: 10px;
+  margin-top: 20px;
   margin-bottom: 2px;
   font-size: 14px;
   text-transform: uppercase;
@@ -104,6 +136,12 @@ form input, form select {
   width: 100%;
   min-width: 100%;
 }
+.field-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
 
 input.grams {
   width: 100px;
@@ -144,7 +182,7 @@ form input:focus, form select:focus {
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
 .sessions {
-  margin-top: 5px;
+  margin-top: 0px;
   padding-top: 0px;
 }
 .session-row {

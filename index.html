@@ -9,41 +9,54 @@
 <body>
   <main class="layout">
     <section class="panel">
-      <h1>BAC & PEth Simulator</h1>
-      <p class="lead">Estimate blood alcohol curves, PEth formation, and decay using a simplified pharmacokinetic model.</p>
+      <div class="header-bar">
+        <div>
+          <h1 id="title">BAC & PEth Simulator</h1>
+          <p class="lead" id="lead">Estimate blood alcohol curves, PEth formation, and decay using a simplified pharmacokinetic model.</p>
+        </div>
+        <div class="lang-wrap">
+          <select id="lang-select" aria-label="Language">
+            <option value="en" data-flag="🇬🇧">🇬🇧 English</option>
+            <option value="fi" data-flag="🇫🇮">🇫🇮 Suomi</option>
+          </select>
+          <span id="lang-flag" class="lang-flag">🇬🇧</span>
+        </div>
+      </div>
       <form id="sim-form">
-        <div class="section-title">Person</div>
+        <div class="section-title" id="person-title">Person</div>
         <div class="person-fields">
           <div class="field">
-            <label for="sex">Sex</label>
+            <label for="sex" id="sex-label">Sex</label>
             <select id="sex" required>
               <option value="male">Male</option>
               <option value="female">Female</option>
             </select>
           </div>
           <div class="field">
-            <label for="weight">Weight (kg)</label>
+            <label for="weight" id="weight-label">Weight (kg)</label>
             <input id="weight" type="number" min="30" max="200" step="1" value="75" required />
           </div>
           <div class="field">
-            <label for="age">Age (years)</label>
+            <label for="age" id="age-label">Age (years)</label>
             <input id="age" type="number" min="18" max="90" step="1" value="35" required />
           </div>
           <div class="field">
             <label for="peth-half-life" class="with-help">
-              PEth half-life (days)
-              <span class="help" title="Typical PEth half-life 3–6 days; literature ranges ~2–12 days depending on isoform, drinking pattern, and physiology.">ⓘ</span>
+              <span id="half-label">PEth half-life (days)</span>
+              <span class="help" id="half-help"
+                    title="Typical PEth half-life 3–6 days; literature ranges ~2–12 days depending on isoform, drinking pattern, and physiology."
+                    >ⓘ</span>
             </label>
             <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" required />
           </div>
         </div>
 
-        <div class="section-title">Drinking sessions</div>
+        <div class="section-title" id="sessions-title">Drinking sessions</div>
         <div id="sessions" class="sessions"></div>
         <button type="button" class="btn" id="add-session">+ Add drinking period</button>
-        <button type="submit" class="btn">Run simulation</button>
+        <button type="submit" class="btn" id="run-btn">Run simulation</button>
       </form>
-      <div class="note">
+      <div class="note" id="form-note">
         Model blends Widmark style BAC with first-order absorption and elimination.
         PEth synthesis is proportional to BAC and decays with a multi-day half-life.
       </div>
@@ -52,25 +65,25 @@
     <section class="panel">
       <div class="cards">
         <div class="stat">
-          <h3>Peak BAC</h3>
+          <h3 id="peak-bac-label">Peak BAC</h3>
           <div class="value" id="peak-bac">-</div>
         </div>
         <div class="stat">
-          <h3>Time over 0.5‰</h3>
+          <h3 id="time-over-label">Time over 0.5‰</h3>
           <div class="value" id="time-over">-</div>
         </div>
         <div class="stat">
-          <h3>Peak PEth</h3>
+          <h3 id="peak-peth-label">Peak PEth</h3>
           <div class="value" id="peak-peth">-</div>
         </div>
       </div>
       <div class="grid">
         <div>
-          <h3 class="section-title">Blood alcohol (‰)</h3>
+          <h3 class="section-title" id="bac-chart-label">Blood alcohol (‰)</h3>
           <canvas id="bac-chart" width="600" height="260"></canvas>
         </div>
         <div>
-          <h3 class="section-title">PEth (µmol/L)</h3>
+          <h3 class="section-title" id="peth-chart-label">PEth (µmol/L)</h3>
           <canvas id="peth-chart" width="600" height="260"></canvas>
         </div>
       </div>
@@ -86,18 +99,19 @@
         <button id="calc-close" class="modal-close" aria-label="Close">✕</button>
       </div>
       <form id="calc-form">
-        <label for="calc-volume">Volume (cl)</label>
+        <label for="calc-volume" id="calc-volume-label">Volume (cl)</label>
           <input id="calc-volume" type="number" min="1" step="0.1" value="50" />
-          <label for="calc-abv">Alcohol % (ABV)</label>
+          <label for="calc-abv" id="calc-abv-label">Alcohol % (ABV)</label>
         <input id="calc-abv" type="number" min="0" max="100" step="0.1" value="5.5" />
         <div class="modal-actions">
-          <button type="submit" class="btn">Apply to session</button>
+          <button type="submit" class="btn" id="calc-apply">Apply to session</button>
         </div>
-        <div class="note">Pure ethanol (mL) = volume (cl) × 10 × (ABV/100). Grams are derived with density 0.789 g/mL.</div>
+        <div class="note" id="calc-note">Pure ethanol (mL) = volume (cl) × 10 × (ABV/100). Grams are derived with density 0.789 g/mL.</div>
       </form>
     </div>
   </div>
 
+  <script src="i18n.js"></script>
   <script src="sim.js"></script>
   <script src="main.js"></script>
 </body>

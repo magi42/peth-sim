@@ -2,6 +2,8 @@
 
 Single-page HTML app that lets you simulate blood alcohol concentration curves and resulting phosphatidylethanol (PEth) formation/decay. Open `index.html` in a browser.
 
+You can use the simulator [here](http://magi.fi/ohjelmointi/bio/peth-sim/) (not necessarily the latest version).
+
 ## Quick start
 
 ```bash
