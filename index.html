@@ -40,21 +40,15 @@
             <label for="age" id="age-label">Age (years)</label>
             <input id="age" type="number" min="18" max="90" step="1" value="35" required />
           </div>
-          <div class="field">
-            <label for="peth-half-life" class="with-help">
-              <span id="half-label">PEth half-life (days)</span>
-              <span class="help" id="half-help"
-                    title="Typical PEth half-life 3–6 days; literature ranges ~2–12 days depending on isoform, drinking pattern, and physiology."
-                    >ⓘ</span>
-            </label>
-            <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" required />
-          </div>
         </div>
 
         <div class="section-title" id="sessions-title">Drinking sessions</div>
         <div id="sessions" class="sessions"></div>
         <button type="button" class="btn" id="add-session">+ Add drinking period</button>
-        <button type="submit" class="btn" id="run-btn">Run simulation</button>
+        <div class="btn-row">
+          <button type="button" class="btn ghost" id="more-params">Additional parameters</button>
+          <button type="submit" class="btn" id="run-btn">Run simulation</button>
+        </div>
       </form>
       <div class="note" id="form-note">
         Model blends Widmark style BAC with first-order absorption and elimination.
@@ -107,6 +101,29 @@
           <button type="submit" class="btn" id="calc-apply">Apply to session</button>
         </div>
         <div class="note" id="calc-note">Pure ethanol (mL) = volume (cl) × 10 × (ABV/100). Grams are derived with density 0.789 g/mL.</div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Additional parameters modal -->
+  <div id="params-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="params-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="params-title">Additional parameters</h3>
+        <button id="params-close" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <form id="params-form">
+        <label for="time-step" id="time-step-label">Time step (minutes)</label>
+        <input id="time-step" type="number" min="1" max="120" step="1" value="5" />
+        <label for="peth-half-life" class="with-help">
+          <span id="half-label">PEth half-life (days)</span>
+          <span class="help" id="half-help"
+                title="Typical PEth half-life 3–6 days; literature ranges ~2–12 days depending on isoform, drinking pattern, and physiology.">ⓘ</span>
+        </label>
+        <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" />
+        <div class="modal-actions">
+          <button type="submit" class="btn" id="params-apply">Apply</button>
+        </div>
       </form>
     </div>
   </div>

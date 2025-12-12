@@ -1,14 +1,14 @@
 const PETH_MW_G_PER_MOL = 704.6; // Approx. PEth 16:0/18:1
 const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood for Widmark volume
 
-function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5 }) {
+function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5 }) {
   if (!sessions || !sessions.length) return null;
   const sorted = sessions.slice().sort((a, b) => a.start - b.start);
   const startTime = sorted[0].start;
   const endTime = sorted[sorted.length - 1].end;
   const horizonHours = Math.max(96, (endTime - startTime) / 3.6e6 + 48);
-  const stepMinutes = 5;
-  const baseSteps = Math.ceil((horizonHours * 60) / stepMinutes);
+  const stepMin = Math.max(1, Math.min(120, stepMinutes || 5));
+  const baseSteps = Math.ceil((horizonHours * 60) / stepMin);
   const targetPethNgMl = 0.05 * PETH_MW_G_PER_MOL; // drop below 0.05 µmol/L
   const maxSimHours = 24 * 45; // cap at ~45 days to prevent runaway
 
@@ -32,7 +32,7 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5 }) {
   let currentSession = sorted[sessionIdx];
 
   for (let i = 0; ; i++) {
-    const tMinutes = i * stepMinutes;
+    const tMinutes = i * stepMin;
     const currentTime = new Date(startTime.getTime() + tMinutes * 60000);
 
     // Add alcohol being consumed during active sessions
@@ -47,19 +47,19 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5 }) {
     }
 
     // Absorption from stomach to blood (first-order)
-    const absorbed = stomachGrams * (1 - Math.exp(-absorptionK * stepMinutes));
+    const absorbed = stomachGrams * (1 - Math.exp(-absorptionK * stepMin));
     stomachGrams -= absorbed;
     bloodGrams += absorbed;
 
     // Elimination from blood (zero-order, body-mass-adjusted)
-    const elim = (elimGramsPerHour / 60) * stepMinutes;
+    const elim = (elimGramsPerHour / 60) * stepMin;
     bloodGrams = Math.max(0, bloodGrams - elim);
 
     const bacPermille = bloodGrams / distribVolumeKg;
 
     // PEth synthesis/decay
-    const formation = (formationRateNgPerMlPerHourAt1Permille * bacPermille) * (stepMinutes / 60);
-    const decay = peth * (1 - Math.exp(-decayKPerHour * (stepMinutes / 60)));
+    const formation = (formationRateNgPerMlPerHourAt1Permille * bacPermille) * (stepMin / 60);
+    const decay = peth * (1 - Math.exp(-decayKPerHour * (stepMin / 60)));
     peth = Math.max(0, peth + formation - decay);
 
     timeline.push({ time: currentTime, bac: bacPermille, pethNgMl: peth });
@@ -84,6 +84,7 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5 }) {
       distribVolumeKg,
       decayKPerHour,
       decayHalfLifeDays,
+      stepMinutes: stepMin,
     },
     startTime,
   };

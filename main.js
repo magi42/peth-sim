@@ -5,6 +5,9 @@ const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
 const calcModal = document.getElementById('calc-modal');
 const calcForm = document.getElementById('calc-form');
 const calcClose = document.getElementById('calc-close');
+const paramsModal = document.getElementById('params-modal');
+const paramsForm = document.getElementById('params-form');
+const paramsClose = document.getElementById('params-close');
 const langSelect = document.getElementById('lang-select');
 const langFlag = document.getElementById('lang-flag');
 let activeGramsInput = null;
@@ -13,8 +16,8 @@ let currentLang = detectLang();
 let lastResult = null;
 
 const defaultSessions = [
-  { start: '2025-01-01T19:00', end: '2025-01-01T21:00', ml: 700*0.4  }, // 70 cL of 40% whiskey
-  { start: '2025-01-02T12:00', end: '2025-01-02T13:30', ml: 500*0.05 }  // 50 cL of 5% beer
+  { start: '2025-01-01T18:00', end: '2025-01-01T23:00', ml: 700*0.38 }, // 70 cL of 38% Kossu
+  { start: '2025-01-08T18:00', end: '2025-01-08T23:30', ml: 700*0.38 }  // 70 cL of 38% Kossu
 ];
 
 function createSessionRow(session) {
@@ -62,6 +65,24 @@ form.addEventListener('submit', (e) => {
   render(result);
 });
 
+document.getElementById('more-params').addEventListener('click', () => {
+  paramsModal.classList.remove('hidden');
+  document.getElementById('time-step').focus();
+});
+
+paramsClose.addEventListener('click', () => {
+  paramsModal.classList.add('hidden');
+});
+
+paramsModal.addEventListener('click', (e) => {
+  if (e.target === paramsModal) paramsModal.classList.add('hidden');
+});
+
+paramsForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  paramsModal.classList.add('hidden');
+});
+
 langSelect.addEventListener('change', () => {
   applyTranslations(langSelect.value);
 });
@@ -76,6 +97,7 @@ function getParams() {
   const weight = parseFloat(document.getElementById('weight').value);
   const age = parseInt(document.getElementById('age').value, 10);
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
+  const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
     const end = new Date(row.querySelector('.end').value);
@@ -83,7 +105,7 @@ function getParams() {
     const grams = mlToGrams(ml);
     return { start, end, grams, ml };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0.0 && s.end > s.start);
-  return { sex, weight, age, sessions, decayHalfLifeDays };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes };
 }
 
 function render(result) {
@@ -116,6 +138,7 @@ function render(result) {
     elim: result.params.elimPermillePerHour.toFixed(2),
     form: result.params.formationRateNgPerMlPerHourAt1Permille,
     half: result.params.decayHalfLifeDays.toFixed(2),
+    step: result.params.stepMinutes.toFixed(0),
   });
   document.getElementById('model-note').textContent = note;
 }
@@ -382,6 +405,7 @@ function applyTranslations(lang) {
   setText('sessions-title', t.sessionsTitle);
   setText('add-session', t.addSession);
   setText('run-btn', t.run);
+  setText('more-params', t.moreParams);
   setText('form-note', t.formNote);
   setText('peak-bac-label', t.statPeakBAC);
   setText('time-over-label', t.statTimeOver);
@@ -393,6 +417,9 @@ function applyTranslations(lang) {
   setText('calc-abv-label', t.modalAbv);
   setText('calc-apply', t.modalApply);
   setText('calc-note', t.modalNote);
+  setText('params-title', t.paramsTitle);
+  setText('time-step-label', t.timeStep);
+  setText('params-apply', t.paramsApply);
   // Sex option labels
   const sexSelect = document.getElementById('sex');
   if (sexSelect && sexSelect.options.length >= 2) {

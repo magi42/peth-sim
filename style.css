@@ -179,11 +179,29 @@ form input:focus, form select:focus {
   box-shadow: 0 10px 30px rgba(16, 152, 173, 0.22);
   margin-top: 16px;
 }
+
+#add-session {
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+.btn.ghost {
+  background: #eef3fb;
+  color: #1d2733;
+  box-shadow: none;
+  border: 1px solid #d7e0ef;
+}
 .btn:hover { transform: translateY(-1px); }
 .btn:active { transform: translateY(0); }
 .sessions {
   margin-top: 0px;
   padding-top: 0px;
+}
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
 }
 .session-row {
   display: flex;
