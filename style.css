@@ -53,16 +53,29 @@ p.lead {
 form label {
   display: block;
   font-weight: 600;
-  margin: 14px 0 6px;
+  margin: 4px 0 2px;
 }
 form input, form select {
   width: 100%;
-  padding: 10px 12px;
+  padding: 1px 1px;
   border-radius: 10px;
   border: 1px solid #cbd5e3;
   background: #fff;
   font-size: 14px;
 }
+
+input.grams {
+  width: 100px;
+  font-family: var(--mono);
+  letter-spacing: 0.02em;
+}
+
+input.remove-session {
+  width: auto;
+  padding: 4px 8px;
+  font-size: 14px;
+}
+
 form input:focus, form select:focus {
   outline: 2px solid rgba(28,126,214,0.35);
   border-color: #9ec5f8;
@@ -92,8 +105,8 @@ form input:focus, form select:focus {
   padding-top: 10px;
 }
 .session-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: end;
   margin-bottom: 8px;
@@ -101,8 +114,8 @@ form input:focus, form select:focus {
 .session-row button {
   background: #f1f3f8;
   border: 1px solid #dfe4ee;
-  border-radius: 10px;
-  padding: 8px 10px;
+  border-radius: 3px;
+  padding: 3px 3px;
   cursor: pointer;
   font-weight: 600;
   color: #4c5563;
@@ -149,7 +162,7 @@ canvas {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: 1fr;
   gap: 12px;
 }
 @media (max-width: 860px) {

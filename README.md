@@ -24,7 +24,7 @@ References inform parameter ranges and physiology: e.g., Gnann et al. 2018 (PubM
 ### PEth synthesis/decay
 - Formation proportional to BAC: `8 ng/mL/h` at `1‰` BAC (linear scaling).
 - Decay first-order with half-life `t½ = 4.5 days` (`k = ln(2)/(4.5*24)`).
-- Starting PEth = 0 ng/mL.
+- Output is displayed as `µmol/L`, assuming PEth 16:0/18:1 molecular weight ≈704.6 g/mol (`µmol/L = ng/mL / 704.6`).
 
 ### Simulation loop
 - Time step: 5 minutes; horizon = max(96 h, last_drink_end + 48 h from first drink).

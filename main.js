@@ -1,10 +1,11 @@
 const sessionsEl = document.getElementById('sessions');
 const addSessionBtn = document.getElementById('add-session');
 const form = document.getElementById('sim-form');
+const PETH_MW_G_PER_MOL = 704.6; // Approx. PEth 16:0/18:1
 
 const defaultSessions = [
-  { start: '2024-01-01T19:00', end: '2024-01-01T21:00', grams: 40 },
-  { start: '2024-01-02T18:30', end: '2024-01-02T22:00', grams: 60 }
+  { start: '2025-01-01T19:00', end: '2025-01-01T21:00', grams: 400 },
+  { start: '2025-01-02T18:30', end: '2025-01-02T22:00', grams: 60 }
 ];
 
 function createSessionRow(session) {
@@ -24,7 +25,7 @@ function createSessionRow(session) {
       <input type="number" class="grams" min="1" step="1" value="${session.grams}" required />
     </div>
     <div style="align-self:center;">
-      <button type="button" aria-label="Remove session">✕</button>
+      <button type="button" class="remove-session" aria-label="Remove session">✕</button>
     </div>
   `;
   wrapper.querySelector('button').addEventListener('click', () => wrapper.remove());
@@ -72,7 +73,9 @@ function simulate({ sex, weight, age, sessions }) {
   const endTime = sorted[sorted.length - 1].end;
   const horizonHours = Math.max(96, (endTime - startTime) / 3.6e6 + 48);
   const stepMinutes = 5;
-  const steps = Math.ceil((horizonHours * 60) / stepMinutes);
+  const baseSteps = Math.ceil((horizonHours * 60) / stepMinutes);
+  const targetPethNgMl = 0.05 * PETH_MW_G_PER_MOL; // drop below 0.05 µmol/L
+  const maxSimHours = 24 * 45; // cap at ~45 days to prevent runaway
 
   const r = sex === 'male' ? 0.68 : 0.55; // Widmark distribution factor
   const ageFactor = Math.min(1.25, Math.max(0.85, 1 + (age - 40) * 0.003));
@@ -92,7 +95,7 @@ function simulate({ sex, weight, age, sessions }) {
   let sessionIdx = 0;
   let currentSession = sorted[sessionIdx];
 
-  for (let i = 0; i <= steps; i++) {
+  for (let i = 0; ; i++) {
     const tMinutes = i * stepMinutes;
     const currentTime = new Date(startTime.getTime() + tMinutes * 60000);
 
@@ -120,10 +123,17 @@ function simulate({ sex, weight, age, sessions }) {
 
     // PEth synthesis/decay
     const formation = (formationRateNgPerMlPerHourAt1Permille * bacPermille) * (stepMinutes / 60);
-    const decay = peth * (1 - Math.exp(-decayKPerHour * stepMinutes));
+    const decay = peth * (1 - Math.exp(-decayKPerHour * (stepMinutes / 60)));
     peth = Math.max(0, peth + formation - decay);
 
-    timeline.push({ time: currentTime, bac: bacPermille, peth });
+    timeline.push({ time: currentTime, bac: bacPermille, pethNgMl: peth });
+
+    const pastBaseHorizon = i >= baseSteps;
+    const belowTarget = peth <= targetPethNgMl;
+    const beyondMax = tMinutes >= maxSimHours * 60;
+    if (pastBaseHorizon && (belowTarget || beyondMax)) {
+      break;
+    }
   }
 
   return { timeline, params: { sex, weight, age, r, elimPermillePerHour, formationRateNgPerMlPerHourAt1Permille }, startTime };
@@ -134,27 +144,30 @@ function render(result) {
   const { timeline } = result;
   const peakBAC = Math.max(...timeline.map((t) => t.bac));
   const timeOver = timeline.filter((t) => t.bac >= 0.5).length * 5; // minutes
-  const peakPEth = Math.max(...timeline.map((t) => t.peth));
+  const peakPEthUmol = Math.max(...timeline.map((t) => toUmol(t.pethNgMl)));
 
   document.getElementById('peak-bac').textContent = `${peakBAC.toFixed(2)}‰`;
   document.getElementById('time-over').textContent = `${(timeOver / 60).toFixed(1)} h`;
-  document.getElementById('peak-peth').textContent = `${peakPEth.toFixed(0)} ng/mL`;
+  document.getElementById('peak-peth').textContent = `${peakPEthUmol.toFixed(3)} µmol/L`;
 
-  drawChart(document.getElementById('bac-chart'), timeline.map((t) => ({ x: t.time, y: t.bac })), {
-    color: '#1c7ed6', yLabel: '‰', warning: 0.5
-  });
-  drawChart(document.getElementById('peth-chart'), timeline.map((t) => ({ x: t.time, y: t.peth })), {
-    color: '#f59f00', yLabel: 'ng/mL'
-  });
+  const bacPoints = timeline.map((t) => ({ x: t.time, y: t.bac }));
+  const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmol(t.pethNgMl) }));
+
+  const bacOptions = { color: '#1c7ed6', yLabel: '‰', warning: 0.5, valueFormatter: (v) => `${v.toFixed(3)}‰` };
+  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L` };
+
+  drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions);
+  drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions);
+
+  enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions);
+  enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions);
 
   const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h, PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈4.5 days.`;
   document.getElementById('model-note').textContent = note;
 }
 
-function drawChart(canvas, points, { color, yLabel, warning }) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, highlight) {
+  const { ctx, w, h } = ensureCanvasSize(canvas);
   ctx.clearRect(0, 0, w, h);
   if (!points.length) return;
 
@@ -169,6 +182,15 @@ function drawChart(canvas, points, { color, yLabel, warning }) {
   const scaleX = (t) => padding.l + ((t - minT) / (maxT - minT || 1)) * (w - padding.l - padding.r);
   const scaleY = (v) => h - padding.b - ((v - minY) / (maxY - minY || 1)) * (h - padding.t - padding.b);
 
+  // day ticks at midnight boundaries
+  const midnightTicks = [];
+  const firstMidnight = new Date(minT);
+  firstMidnight.setHours(0, 0, 0, 0);
+  if (firstMidnight.getTime() < minT) firstMidnight.setDate(firstMidnight.getDate() + 1);
+  for (let t = firstMidnight.getTime(); t <= maxT; t += 24 * 60 * 60 * 1000) {
+    midnightTicks.push(t);
+  }
+
   // grid
   ctx.strokeStyle = '#e6ecf4';
   ctx.lineWidth = 1;
@@ -180,6 +202,19 @@ function drawChart(canvas, points, { color, yLabel, warning }) {
     ctx.lineTo(w - padding.r, y);
   }
   ctx.stroke();
+
+  // vertical midnight ticks
+  if (midnightTicks.length) {
+    ctx.strokeStyle = '#eef1f6';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    midnightTicks.forEach((t) => {
+      const x = scaleX(t);
+      ctx.moveTo(x, padding.t);
+      ctx.lineTo(x, h - padding.b);
+    });
+    ctx.stroke();
+  }
 
   if (warning) {
     ctx.strokeStyle = 'rgba(214,40,57,0.5)';
@@ -228,9 +263,117 @@ function drawChart(canvas, points, { color, yLabel, warning }) {
     const d = new Date(t);
     const label = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}`;
     const x = scaleX(t);
-    ctx.fillText(label, x, h - 10);
+    ctx.fillText(label, x, h - padding.b + 4);
+  }
+  if (midnightTicks.length) {
+    ctx.fillStyle = '#4c5663';
+    ctx.font = '11px var(--sans)';
+    midnightTicks.forEach((t) => {
+      const d = new Date(t);
+      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+      ctx.fillText(label, scaleX(t), h - padding.b + 20);
+    });
+  }
+
+  if (highlight) {
+    const x = scaleX(highlight.point.x.getTime());
+    const y = scaleY(highlight.point.y);
+
+    // marker
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(x, y, 5, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // tooltip
+    const text = `${highlight.value} @ ${highlight.time}`;
+    ctx.font = '12px var(--sans)';
+    const paddingBox = 6;
+    const textWidth = ctx.measureText(text).width;
+    const boxW = textWidth + paddingBox * 2;
+    const boxH = 22;
+    const boxX = Math.min(Math.max(x - boxW / 2, padding.l), w - padding.r - boxW);
+    const boxY = padding.t + 6;
+    ctx.fillStyle = 'rgba(29,39,51,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxW, boxH, 6);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    const prevAlign = ctx.textAlign;
+    const prevBaseline = ctx.textBaseline;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, boxX + boxW / 2, boxY + boxH / 2);
+    ctx.textAlign = prevAlign;
+    ctx.textBaseline = prevBaseline;
   }
 }
 
 // Kick off initial render
 render(simulate(getParams()));
+
+function toUmol(ngPerMl) {
+  return ngPerMl / PETH_MW_G_PER_MOL;
+}
+
+function enableHover(canvas, points, options) {
+  if (!points.length) return;
+  if (canvas._hoverCleanup) {
+    canvas._hoverCleanup();
+  }
+  const handler = (evt) => {
+    const rect = canvas.getBoundingClientRect();
+    const xPos = evt.clientX - rect.left;
+    const w = rect.width || canvas.clientWidth || canvas.width;
+    const padding = { l: 45, r: 14, t: 12, b: 28 };
+    const minT = Math.min(...points.map((p) => p.x.getTime()));
+    const maxT = Math.max(...points.map((p) => p.x.getTime()));
+    const ratio = Math.max(0, Math.min(1, (xPos - padding.l) / (w - padding.l - padding.r)));
+    const targetT = minT + ratio * (maxT - minT);
+    let nearest = points[0];
+    let minDiff = Math.abs(points[0].x.getTime() - targetT);
+    for (let i = 1; i < points.length; i++) {
+      const diff = Math.abs(points[i].x.getTime() - targetT);
+      if (diff < minDiff) {
+        minDiff = diff;
+        nearest = points[i];
+      }
+    }
+    drawChart(canvas, points, options, {
+      point: nearest,
+      value: options.valueFormatter ? options.valueFormatter(nearest.y) : nearest.y.toFixed(2),
+      time: formatTime(nearest.x),
+    });
+  };
+  const leaveHandler = () => drawChart(canvas, points, options);
+  canvas.addEventListener('mousemove', handler);
+  canvas.addEventListener('mouseleave', leaveHandler);
+  canvas._hoverCleanup = () => {
+    canvas.removeEventListener('mousemove', handler);
+    canvas.removeEventListener('mouseleave', leaveHandler);
+  };
+}
+
+function ensureCanvasSize(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const displayW = canvas.getBoundingClientRect().width || canvas.clientWidth || canvas.width || 600;
+  const displayH = canvas.getBoundingClientRect().height || canvas.clientHeight || canvas.height || 260;
+  const needResize = canvas.width !== Math.floor(displayW * dpr) || canvas.height !== Math.floor(displayH * dpr);
+  if (needResize) {
+    canvas.width = displayW * dpr;
+    canvas.height = displayH * dpr;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // map logical units to CSS pixels
+  return { ctx, w: displayW, h: displayH };
+}
+
+function formatTime(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
