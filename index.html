@@ -78,6 +78,26 @@
     </section>
   </main>
 
+  <!-- Ethanol calculator modal -->
+  <div id="calc-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="calc-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="calc-title">Ethanol calculator</h3>
+        <button id="calc-close" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <form id="calc-form">
+        <label for="calc-volume">Volume (cl)</label>
+          <input id="calc-volume" type="number" min="1" step="0.1" value="50" />
+          <label for="calc-abv">Alcohol % (ABV)</label>
+        <input id="calc-abv" type="number" min="0" max="100" step="0.1" value="5.5" />
+        <div class="modal-actions">
+          <button type="submit" class="btn">Apply to session</button>
+        </div>
+        <div class="note">Pure ethanol (mL) = volume (cl) × 10 × (ABV/100). Grams are derived with density 0.789 g/mL.</div>
+      </form>
+    </div>
+  </div>
+
   <script src="sim.js"></script>
   <script src="main.js"></script>
 </body>

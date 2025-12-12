@@ -2,10 +2,14 @@ const sessionsEl = document.getElementById('sessions');
 const addSessionBtn = document.getElementById('add-session');
 const form = document.getElementById('sim-form');
 const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
+const calcModal = document.getElementById('calc-modal');
+const calcForm = document.getElementById('calc-form');
+const calcClose = document.getElementById('calc-close');
+let activeGramsInput = null;
 
 const defaultSessions = [
-  { start: '2025-01-01T19:00', end: '2025-01-01T21:00', grams: 400 },
-  { start: '2025-01-02T18:30', end: '2025-01-02T22:00', grams: 60 }
+  { start: '2025-01-01T19:00', end: '2025-01-01T21:00', ml: 700*0.4  }, // 70 cL of 40% whiskey
+  { start: '2025-01-02T12:00', end: '2025-01-02T13:30', ml: 500*0.05 }  // 50 cL of 5% beer
 ];
 
 function createSessionRow(session) {
@@ -21,14 +25,19 @@ function createSessionRow(session) {
       <input type="datetime-local" class="end" value="${session.end}" required />
     </div>
     <div>
-      <label>Ethanol (g)</label>
-      <input type="number" class="grams" min="1" step="1" value="${session.grams}" required />
+      <label>Ethanol (mL)</label>
+      <div class="ethanol-input">
+        <input type="number" class="grams" min="0.1" step="0.1" value="${session.ml}" required />
+        <button type="button" class="calc-grams" aria-label="Calculate mL from volume and %">Calc</button>
+      </div>
     </div>
     <div style="align-self:center;">
       <button type="button" class="remove-session" aria-label="Remove session">✕</button>
     </div>
   `;
-  wrapper.querySelector('button').addEventListener('click', () => wrapper.remove());
+  const removeBtn = wrapper.querySelector('.remove-session');
+  if (removeBtn) removeBtn.addEventListener('click', () => wrapper.remove());
+  wrapper.querySelector('.calc-grams').addEventListener('click', () => openCalcModal(wrapper.querySelector('.grams')));
   sessionsEl.appendChild(wrapper);
 }
 
@@ -61,9 +70,10 @@ function getParams() {
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
     const end = new Date(row.querySelector('.end').value);
-    const grams = parseFloat(row.querySelector('.grams').value);
-    return { start, end, grams };
-  }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0 && s.end > s.start);
+    const ml = parseFloat(row.querySelector('.grams').value);
+    const grams = mlToGrams(ml);
+    return { start, end, grams, ml };
+  }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0.0 && s.end > s.start);
   return { sex, weight, age, sessions, decayHalfLifeDays };
 }
 
@@ -119,7 +129,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
     midnightTicks.push(t);
   }
 
-  // grid
+  // Grid
   ctx.strokeStyle = '#e6ecf4';
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -131,7 +141,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
   }
   ctx.stroke();
 
-  // vertical midnight ticks
+  // Vertical midnight ticks
   if (midnightTicks.length) {
     ctx.strokeStyle = '#eef1f6';
     ctx.lineWidth = 1;
@@ -155,7 +165,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
     ctx.setLineDash([]);
   }
 
-  // line
+  // The graph line
   ctx.strokeStyle = color;
   ctx.lineWidth = 2.4;
   ctx.beginPath();
@@ -239,6 +249,35 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
 // Kick off initial render
 render(runSim(getParams()));
 
+function openCalcModal(targetInput) {
+  activeGramsInput = targetInput;
+  calcModal.classList.remove('hidden');
+  document.getElementById('calc-volume').focus();
+}
+
+function closeCalcModal() {
+  calcModal.classList.add('hidden');
+  activeGramsInput = null;
+}
+
+calcForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const volCl = parseFloat(document.getElementById('calc-volume').value);
+  const abv = parseFloat(document.getElementById('calc-abv').value);
+  if (!activeGramsInput || Number.isNaN(volCl) || Number.isNaN(abv)) {
+    closeCalcModal();
+    return;
+  }
+  const pureMl = volCl * 10 * (abv / 100); // cl -> mL, scaled by ABV
+  activeGramsInput.value = pureMl.toFixed(1);
+  closeCalcModal();
+});
+
+calcClose.addEventListener('click', closeCalcModal);
+calcModal.addEventListener('click', (e) => {
+  if (e.target === calcModal) closeCalcModal();
+});
+
 function enableHover(canvas, points, options) {
   if (!points.length) return;
   if (canvas._hoverCleanup) {
@@ -294,4 +333,9 @@ function ensureCanvasSize(canvas) {
 function formatTime(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function mlToGrams(ml, abv = 100) {
+  // If ml is pure ethanol, abv=100; if ml is beverage volume, pass actual ABV.
+  return ml * 0.789 * (abv / 100);
 }

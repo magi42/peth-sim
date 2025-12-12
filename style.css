@@ -111,9 +111,12 @@ input.grams {
   letter-spacing: 0.02em;
 }
 
-input.remove-session {
+/* Adjust button style for remove-session buttons in session rows.
+   NOTE: The session-row button style currently overlaps this. */
+button.remove-session {
   width: auto;
-  padding: 4px 8px;
+  margin-top: 15px;
+  padding: 4px 4px;
   font-size: 14px;
 }
 
@@ -148,14 +151,32 @@ form input:focus, form select:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  align-items: end;
+  align-items: flex-end;
   margin-bottom: 8px;
 }
+.ethanol-input {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ethanol-input input {
+  min-width: 120px;
+}
+.calc-grams {
+  background: #f1f3f8;
+  border: 1px solid #dfe4ee;
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #4c5563;
+}
+.calc-grams:hover { background: #e5eaf4; }
 .session-row button {
   background: #f1f3f8;
   border: 1px solid #dfe4ee;
   border-radius: 3px;
-  padding: 3px 3px;
+  padding: 0px 3px;
   cursor: pointer;
   font-weight: 600;
   color: #4c5563;
@@ -164,6 +185,43 @@ form input:focus, form select:focus {
   align-self: flex-end;
 }
 .session-row button:hover { background: #e5eaf4; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 23, 38, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+.modal.hidden { display: none; }
+.modal-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  width: min(320px, 90vw);
+  box-shadow: 0 16px 40px rgba(12, 28, 56, 0.18);
+  border: 1px solid #dfe7f5;
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.modal-close {
+  background: #f1f3f8;
+  border: 1px solid #dfe4ee;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+.modal-actions {
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
