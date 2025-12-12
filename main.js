@@ -98,7 +98,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
   ctx.clearRect(0, 0, w, h);
   if (!points.length) return;
 
-  const padding = { l: 45, r: 14, t: 12, b: 28 };
+  const padding = { l: 45, r: 14, t: 12, b: 40 };
   const times = points.map((p) => p.x.getTime());
   const minT = Math.min(...times);
   const maxT = Math.max(...times);
@@ -166,7 +166,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
   });
   ctx.stroke();
 
-  // axes
+  // Axes
   ctx.strokeStyle = '#9aa9bc';
   ctx.lineWidth = 1.2;
   ctx.beginPath();
@@ -175,33 +175,27 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
   ctx.lineTo(w - padding.r, h - padding.b);
   ctx.stroke();
 
-  // labels
+  // Axis labels
   ctx.fillStyle = '#4a5667';
   ctx.font = '12px var(--sans)';
   ctx.fillText(yLabel, 6, padding.t + 12);
   ctx.textAlign = 'center';
-  ctx.fillText('Time', w / 2, h - 6);
+  ctx.fillText('Time', w / 2, h - 8);
 
-  // ticks on x (hours)
+  // Ticks on x
   ctx.fillStyle = '#6c7585';
   const tickCount = 6;
-  for (let i = 0; i <= tickCount; i++) {
-    const t = minT + (i / tickCount) * (maxT - minT);
-    const d = new Date(t);
-    const label = `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}`;
-    const x = scaleX(t);
-    ctx.fillText(label, x, h - padding.b + 4);
-  }
   if (midnightTicks.length) {
     ctx.fillStyle = '#4c5663';
     ctx.font = '11px var(--sans)';
     midnightTicks.forEach((t) => {
       const d = new Date(t);
       const label = `${d.getMonth() + 1}/${d.getDate()}`;
-      ctx.fillText(label, scaleX(t), h - padding.b + 20);
+      ctx.fillText(label, scaleX(t), h - padding.b + 15);
     });
   }
 
+  // Shown when hovering
   if (highlight) {
     const x = scaleX(highlight.point.x.getTime());
     const y = scaleY(highlight.point.y);
