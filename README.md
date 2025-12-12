@@ -11,6 +11,8 @@ xdg-open index.html   # or open index.html with your browser
 
 Adjust sex, weight, age, and add one or more drinking sessions (start/end + grams of ethanol). Click **Run simulation** to view BAC (‰) and PEth (ng/mL) curves.
 
+PEth half-life (days) is configurable; defaults to 4.5 days.
+
 ## Tests (Node-only)
 
 Requires only Node (no extra packages). Run:

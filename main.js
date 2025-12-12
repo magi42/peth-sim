@@ -57,13 +57,14 @@ function getParams() {
   const sex = document.getElementById('sex').value;
   const weight = parseFloat(document.getElementById('weight').value);
   const age = parseInt(document.getElementById('age').value, 10);
+  const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
     const end = new Date(row.querySelector('.end').value);
     const grams = parseFloat(row.querySelector('.grams').value);
     return { start, end, grams };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0 && s.end > s.start);
-  return { sex, weight, age, sessions };
+  return { sex, weight, age, sessions, decayHalfLifeDays };
 }
 
 function render(result) {
@@ -89,7 +90,7 @@ function render(result) {
   enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions);
   enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions);
 
-  const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h (volume includes 1.055 blood-water factor), PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈4.5 days.`;
+  const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h (volume includes 1.055 blood-water factor), PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈${result.params.decayHalfLifeDays.toFixed(2)} days.`;
   document.getElementById('model-note').textContent = note;
 }
 
