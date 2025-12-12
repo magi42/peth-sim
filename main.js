@@ -1,7 +1,7 @@
 const sessionsEl = document.getElementById('sessions');
 const addSessionBtn = document.getElementById('add-session');
 const form = document.getElementById('sim-form');
-const PETH_MW_G_PER_MOL = 704.6; // Approx. PEth 16:0/18:1
+const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
 
 const defaultSessions = [
   { start: '2025-01-01T19:00', end: '2025-01-01T21:00', grams: 400 },
@@ -44,7 +44,7 @@ addSessionBtn.addEventListener('click', () => {
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const params = getParams();
-  const result = simulate(params);
+  const result = runSim(params);
   render(result);
 });
 
@@ -66,92 +66,19 @@ function getParams() {
   return { sex, weight, age, sessions };
 }
 
-function simulate({ sex, weight, age, sessions }) {
-  if (!sessions.length) return null;
-  const sorted = sessions.slice().sort((a, b) => a.start - b.start);
-  const startTime = sorted[0].start;
-  const endTime = sorted[sorted.length - 1].end;
-  const horizonHours = Math.max(96, (endTime - startTime) / 3.6e6 + 48);
-  const stepMinutes = 5;
-  const baseSteps = Math.ceil((horizonHours * 60) / stepMinutes);
-  const targetPethNgMl = 0.05 * PETH_MW_G_PER_MOL; // drop below 0.05 µmol/L
-  const maxSimHours = 24 * 45; // cap at ~45 days to prevent runaway
-
-  const r = sex === 'male' ? 0.68 : 0.55; // Widmark distribution factor
-  const ageFactor = Math.min(1.25, Math.max(0.85, 1 + (age - 40) * 0.003));
-  const elimPermillePerHour = 0.15 * ageFactor; // 0.015 g/dL -> 0.15‰
-  const elimGramsPerHour = elimPermillePerHour * r * weight;
-  const absorptionK = 1.5 / 60; // 1.5 /hour as per-minute constant
-
-  // PEth parameters (heuristic): synthesis proportional to BAC, decay with half-life ~4.5 days
-  const formationRateNgPerMlPerHourAt1Permille = 8; // ng/mL/h when BAC = 1‰
-  const decayKPerHour = Math.log(2) / (4.5 * 24);
-
-  const timeline = [];
-  let stomachGrams = 0;
-  let bloodGrams = 0;
-  let peth = 0;
-
-  let sessionIdx = 0;
-  let currentSession = sorted[sessionIdx];
-
-  for (let i = 0; ; i++) {
-    const tMinutes = i * stepMinutes;
-    const currentTime = new Date(startTime.getTime() + tMinutes * 60000);
-
-    // Add alcohol being consumed during active sessions
-    while (currentSession && currentTime > currentSession.end && sessionIdx < sorted.length - 1) {
-      sessionIdx += 1;
-      currentSession = sorted[sessionIdx];
-    }
-    if (currentSession && currentTime >= currentSession.start && currentTime <= currentSession.end) {
-      const durationMin = (currentSession.end - currentSession.start) / 60000;
-      const ingestionRate = currentSession.grams / durationMin; // g/min
-      stomachGrams += ingestionRate * stepMinutes;
-    }
-
-    // Absorption from stomach to blood (first-order)
-    const absorbed = stomachGrams * (1 - Math.exp(-absorptionK * stepMinutes));
-    stomachGrams -= absorbed;
-    bloodGrams += absorbed;
-
-    // Elimination from blood (zero-order, body-mass-adjusted)
-    const elim = (elimGramsPerHour / 60) * stepMinutes;
-    bloodGrams = Math.max(0, bloodGrams - elim);
-
-    const bacPermille = (bloodGrams / (r * weight));
-
-    // PEth synthesis/decay
-    const formation = (formationRateNgPerMlPerHourAt1Permille * bacPermille) * (stepMinutes / 60);
-    const decay = peth * (1 - Math.exp(-decayKPerHour * (stepMinutes / 60)));
-    peth = Math.max(0, peth + formation - decay);
-
-    timeline.push({ time: currentTime, bac: bacPermille, pethNgMl: peth });
-
-    const pastBaseHorizon = i >= baseSteps;
-    const belowTarget = peth <= targetPethNgMl;
-    const beyondMax = tMinutes >= maxSimHours * 60;
-    if (pastBaseHorizon && (belowTarget || beyondMax)) {
-      break;
-    }
-  }
-
-  return { timeline, params: { sex, weight, age, r, elimPermillePerHour, formationRateNgPerMlPerHourAt1Permille }, startTime };
-}
-
 function render(result) {
   if (!result) return;
   const { timeline } = result;
   const peakBAC = Math.max(...timeline.map((t) => t.bac));
   const timeOver = timeline.filter((t) => t.bac >= 0.5).length * 5; // minutes
-  const peakPEthUmol = Math.max(...timeline.map((t) => toUmol(t.pethNgMl)));
+  const peakPEthUmol = Math.max(...timeline.map((t) => toUmolFn(t.pethNgMl)));
 
   document.getElementById('peak-bac').textContent = `${peakBAC.toFixed(2)}‰`;
   document.getElementById('time-over').textContent = `${(timeOver / 60).toFixed(1)} h`;
   document.getElementById('peak-peth').textContent = `${peakPEthUmol.toFixed(3)} µmol/L`;
 
   const bacPoints = timeline.map((t) => ({ x: t.time, y: t.bac }));
-  const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmol(t.pethNgMl) }));
+  const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
 
   const bacOptions = { color: '#1c7ed6', yLabel: '‰', warning: 0.5, valueFormatter: (v) => `${v.toFixed(3)}‰` };
   const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L` };
@@ -162,7 +89,7 @@ function render(result) {
   enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions);
   enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions);
 
-  const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h, PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈4.5 days.`;
+  const note = `Parameters: r=${result.params.r.toFixed(2)}, elimination ${result.params.elimPermillePerHour.toFixed(2)}‰/h (volume includes 1.055 blood-water factor), PEth formation ${result.params.formationRateNgPerMlPerHourAt1Permille} ng/mL per hour at 1‰. BAC uses Widmark-style volume of distribution, absorption k=1.5/h, elimination zero-order; PEth decays with t½≈4.5 days.`;
   document.getElementById('model-note').textContent = note;
 }
 
@@ -315,11 +242,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter }, h
 }
 
 // Kick off initial render
-render(simulate(getParams()));
-
-function toUmol(ngPerMl) {
-  return ngPerMl / PETH_MW_G_PER_MOL;
-}
+render(runSim(getParams()));
 
 function enableHover(canvas, points, options) {
   if (!points.length) return;

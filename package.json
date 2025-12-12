@@ -1,0 +1,10 @@
+{
+  "name": "peth-sim",
+  "version": "0.1.0",
+  "description": "PEth & BAC simulator",
+  "scripts": {
+    "test": "node test/sim.test.js",
+    "start": "node serve.js"
+  },
+  "license": "MIT"
+}

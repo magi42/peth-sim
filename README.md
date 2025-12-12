@@ -5,21 +5,29 @@ Single-page HTML app that lets you simulate blood alcohol concentration curves a
 ## Quick start
 
 ```bash
-# in this folder
+# open directly from disk
 xdg-open index.html   # or open index.html with your browser
 ```
 
 Adjust sex, weight, age, and add one or more drinking sessions (start/end + grams of ethanol). Click **Run simulation** to view BAC (‰) and PEth (ng/mL) curves.
+
+## Tests (Node-only)
+
+Requires only Node (no extra packages). Run:
+
+```bash
+npm test
+```
 
 ## Model (simplified)
 
 References inform parameter ranges and physiology: e.g., Gnann et al. 2018 (PubMed 30103144) and Javors et al. 2023 (PubMed 36790103) describe PEth kinetics and half-life variability. This simulator uses lightweight heuristic choices for interactivity, not for clinical use.
 
 ### Blood alcohol
-- Widmark volume of distribution: `r = 0.68` (male), `0.55` (female).
+- Widmark volume of distribution: `r = 0.68` (male), `0.55` (female), multiplied by blood-water density `1.055` to convert to kg of water.
 - Absorption: first-order from stomach with `k_abs = 1.5 / h`.
-- Elimination: zero-order `0.15‰ / h` (≈0.015 g/dL/h). Age factor scales ±0.3% per year around 40 (bounded to 0.85–1.25x).
-- Concentration in ‰: `BAC = grams_in_body / (r * weight_kg)`.
+- Elimination: zero-order `0.15‰ / h` (≈0.015 g/dL/h). Age factor scales ±0.3% per year around 40 (bounded to 0.85–1.25x); grams/hour uses the same volume factor as BAC.
+- Concentration in ‰: `BAC = grams_in_body / (r * weight_kg * 1.055)`.
 
 ### PEth synthesis/decay
 - Formation proportional to BAC: `8 ng/mL/h` at `1‰` BAC (linear scaling).
