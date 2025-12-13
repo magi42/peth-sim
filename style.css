@@ -221,6 +221,9 @@ form input:focus, form select:focus {
   flex-wrap: wrap;
   margin-top: 8px;
 }
+#run-btn {
+  margin-left: auto;
+}
 .session-row {
   display: flex;
   flex-wrap: wrap;

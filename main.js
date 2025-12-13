@@ -19,8 +19,8 @@ let currentLang = detectLang();
 let lastResult = null;
 
 const defaultSessions = [
-  { start: '2025-01-01T18:00', end: '2025-01-01T23:00', ml: 700*0.38 }, // 70 cL of 38% Kossu
-  { start: '2025-01-08T18:00', end: '2025-01-08T23:30', ml: 700*0.38 }  // 70 cL of 38% Kossu
+  { start: '2025-01-01T17:00', end: '2025-01-01T21:00', ml: 10*1*70*0.38 }, // One 70 cL of 38% Kossu
+  { start: '2025-01-02T10:00', end: '2025-01-02T14:00', ml: 10*3*50*0.08 }  // Three big cans of 8% beers for hangover
 ];
 
 const MEAL_PROFILES = {

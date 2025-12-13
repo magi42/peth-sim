@@ -21,9 +21,9 @@ function runTests() {
   const peakA = Math.max(...caseA.timeline.map((t) => t.bac));
   const timeOverA = caseA.timeline.filter((t) => t.bac >= 0.5).length * 5 / 60;
   const peakPethA = Math.max(...caseA.timeline.map((t) => toUmol(t.pethNgMl)));
-  approx(peakA, 0.781, 0.03, 'Peak BAC for 60g/2h male 80kg');
-  approx(timeOverA, 2.58, 0.25, 'Hours over 0.5‰ for 60g/2h male 80kg');
-  approx(peakPethA, 0.045, 0.01, 'Peak PEth µmol/L for 60g/2h male 80kg');
+  approx(peakA, 0.64, 0.03, 'Peak BAC for 60g/2h male 80kg');
+  approx(timeOverA, 2.08, 0.25, 'Hours over 0.5‰ for 60g/2h male 80kg');
+  approx(peakPethA, 0.039, 0.01, 'Peak PEth µmol/L for 60g/2h male 80kg');
   assert.ok(caseA.timeline[caseA.timeline.length - 1].bac < 0.005, 'BAC returns near zero by end of horizon');
 
   // 3) Multi-day drinking extends horizon until PEth < 0.05 µmol/L

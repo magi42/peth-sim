@@ -1,7 +1,9 @@
 const PETH_MW_G_PER_MOL = 704.6; // Molecular weight of PEth 16:0/18:1
 const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood for Widmark volume
+const BASE_ABS_K_PER_H = 2.0; // Empty stomach first-order absorption rate (~t1/2 0.35 h)
+const BASE_ABS_CAP_G_PER_H = 80; // Upper cap for absorption on empty stomach
 
-function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = 40, absMax = 60 }) {
+function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = BASE_ABS_K_PER_H, absMax = BASE_ABS_CAP_G_PER_H }) {
   if (!sessions || !sessions.length) return null;
   const sorted = sessions.slice().sort((a, b) => a.start - b.start);
   const startTime = sorted[0].start;
@@ -17,11 +19,11 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
   const elimPermillePerHour = 0.15 * ageFactor; // 0.015 g/dL -> 0.15‰
   const distribVolumeKg = r * weight * BLOOD_WATER_FACTOR;
   const elimGramsPerHour = elimPermillePerHour * distribVolumeKg;
-  const effectiveAbsRate = absRate;
+  const effectiveAbsRateK = absRate; // per hour
   const effectiveAbsCap = absMax;
 
-// PEth parameters: synthesis proportional to BAC, decay with half-life ~4.5 days (default)
-const decayKPerHour = Math.log(2) / (decayHalfLifeDays * 24);
+  // PEth parameters: synthesis proportional to BAC, decay with half-life ~4.5 days (default)
+  const decayKPerHour = Math.log(2) / (decayHalfLifeDays * 24);
 
   const timeline = [];
   let stomachGrams = 0;
@@ -52,10 +54,12 @@ const decayKPerHour = Math.log(2) / (decayHalfLifeDays * 24);
       currentAbsFactor = 1;
     }
 
-    // Absorption from stomach to blood (linear with cap)
-    const linearAbs = ((effectiveAbsRate * currentAbsFactor) / 60) * stepMin;
-    const cappedAbs = ((effectiveAbsCap * currentAbsFactor) / 60) * stepMin;
-    const absorbed = Math.min(stomachGrams, Math.min(linearAbs, cappedAbs));
+    // Absorption from stomach to blood (first-order with cap; scaled by meal factor)
+    const k = effectiveAbsRateK * currentAbsFactor;
+    const capPerHour = effectiveAbsCap * currentAbsFactor;
+    const firstOrderAbs = stomachGrams * (k * (stepMin / 60));
+    const capAbs = (capPerHour / 60) * stepMin;
+    const absorbed = Math.min(stomachGrams, Math.min(firstOrderAbs, capAbs));
     stomachGrams -= absorbed;
     bloodGrams += absorbed;
 
