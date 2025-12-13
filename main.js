@@ -192,8 +192,10 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   ctx.strokeStyle = '#e6ecf4';
   ctx.lineWidth = 1;
   ctx.textAlign = 'right';
-  const gridLines = 5;
-  const tickStep = axisTick || (maxY / gridLines);
+  const baseLines = 5;
+  const tickStep = axisTick || (maxY / (baseLines || 1));
+  const gridLines = Math.max(baseLines, Math.ceil(maxY / (tickStep || 1)));
+  console.log("Foo", tickStep, gridLines);
   ctx.fillStyle = '#6c7585';
   ctx.font = '12px var(--sans)';
   for (let i = 0; i <= gridLines; i++) {
@@ -203,7 +205,11 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     ctx.moveTo(padding.l, y);
     ctx.lineTo(w - padding.r, y);
     ctx.stroke();
-    ctx.fillText(tick.toFixed(2), padding.l - 6, y + 4);
+
+    // Grid line label. If goes all up, would overlap with the axis label.
+    if (i < gridLines-1) {
+      ctx.fillText(tick.toFixed(2), padding.l - 6, y + 4);
+    }
   }
 
   // Vertical midnight ticks
