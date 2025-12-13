@@ -144,12 +144,16 @@
       <form id="params-form">
         <label for="time-step" id="time-step-label">Time step (minutes)</label>
         <input id="time-step" type="number" min="1" max="120" step="1" value="5" />
-        <label for="peth-half-life" class="with-help">
-          <span id="half-label">PEth half-life (days)</span>
-          <span class="help" id="half-help"
-                title="Typical PEth half-life 3–6 days; literature ranges ~2–12 days depending on isoform, drinking pattern, and physiology.">ⓘ</span>
-        </label>
+        <div class="input-note" id="time-step-note">Simulation resolution; smaller step is smoother but slower.</div>
+
+        <label for="peth-half-life" id="half-label">PEth half-life (days)</label>
         <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" />
+        <div class="input-note" id="half-note">Literature: ~3–6 days typical; reported range ~2–12 days.</div>
+
+        <label for="formation-rate" id="formation-rate-label">PEth formation @ 1‰ (ng/mL/h)</label>
+        <input id="formation-rate" type="number" min="1" max="50" step="0.1" value="11.3" />
+        <div class="input-note" id="formation-rate-note">Derived from 0.016 μmol/L/h at 1‰ ≈ 11.3 ng/mL/h (PEth 16:0/18:1).</div>
+
         <div class="modal-actions">
           <button type="submit" class="btn" id="params-apply">Apply</button>
         </div>

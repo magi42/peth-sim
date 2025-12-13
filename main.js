@@ -107,6 +107,7 @@ function getParams() {
   const weight = parseFloat(document.getElementById('weight').value);
   const age = parseInt(document.getElementById('age').value, 10);
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
+  const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
@@ -115,7 +116,7 @@ function getParams() {
     const grams = mlToGrams(ml);
     return { start, end, grams, ml };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0.0 && s.end > s.start);
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate };
 }
 
 function render(result) {
@@ -547,8 +548,6 @@ function applyTranslations(lang) {
   setText('weight-label', t.weight);
   setText('age-label', t.age);
   setText('half-label', t.halfLife);
-  const halfHelpEl = document.getElementById('half-help');
-  if (halfHelpEl) halfHelpEl.title = t.halfHelp;
   setText('sessions-title', t.sessionsTitle);
   setText('add-session', t.addSession);
   setText('run-btn', t.run);
@@ -571,12 +570,22 @@ function applyTranslations(lang) {
   setText('hdr-vol', t.hdrVol);
   setText('hdr-abv', t.hdrAbv);
   setText('hdr-doses', t.hdrDoses);
+  setText('formation-rate-label', t.formationRateLabel);
+  setText('time-step-note', t.timeStepNote);
+  setText('half-note', t.halfNote);
+  setText('formation-rate-note', t.formationRateNote);
   const totalEl = document.getElementById('calc-total');
   if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);
   setOptionText('opt-beer05', t.calcOptBeer05);
+  setOptionText('opt-beerStrong', t.calcOptBeerStrong);
   setOptionText('opt-cider', t.calcOptCider);
   setOptionText('opt-wine', t.calcOptWine);
+  setOptionText('opt-wine16', t.calcOptWine16);
+  setOptionText('opt-wineBottle75', t.calcOptWineBottle75);
+  setOptionText('opt-wineBottle100', t.calcOptWineBottle100);
+  setOptionText('opt-wineCan200', t.calcOptWineCan200);
+  setOptionText('opt-wineCan300', t.calcOptWineCan300);
   setOptionText('opt-longdrink', t.calcOptLongdrink);
   setOptionText('opt-bottle05', t.calcOptBottle05);
   setOptionText('opt-bottle07', t.calcOptBottle07);

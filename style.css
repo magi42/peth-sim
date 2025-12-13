@@ -387,6 +387,12 @@ form input:focus, form select:focus {
   font-weight: 700;
   color: #1d2733;
 }
+.input-note {
+  font-size: 12px;
+  color: #6a7685;
+  margin-top: 4px;
+  margin-bottom: 8px;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

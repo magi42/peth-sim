@@ -23,7 +23,7 @@ function runTests() {
   const peakPethA = Math.max(...caseA.timeline.map((t) => toUmol(t.pethNgMl)));
   approx(peakA, 0.579, 0.02, 'Peak BAC for 60g/2h male 80kg');
   approx(timeOverA, 1.83, 0.2, 'Hours over 0.5‰ for 60g/2h male 80kg');
-  approx(peakPethA, 0.025, 0.005, 'Peak PEth µmol/L for 60g/2h male 80kg');
+  approx(peakPethA, 0.036, 0.01, 'Peak PEth µmol/L for 60g/2h male 80kg');
   assert.ok(caseA.timeline[caseA.timeline.length - 1].bac < 0.005, 'BAC returns near zero by end of horizon');
 
   // 3) Multi-day drinking extends horizon until PEth < 0.05 µmol/L
@@ -40,7 +40,7 @@ function runTests() {
   const endPethB = toUmol(lastB.pethNgMl);
   const durationDaysB = (lastB.time - caseB.timeline[0].time) / 86400000;
   assert.ok(endPethB <= 0.05, 'PEth decays below 0.05 µmol/L with extended horizon');
-  assert.ok(durationDaysB >= 7, 'Extended horizon runs multiple days to show PEth decay');
+  assert.ok(durationDaysB >= 10, 'Extended horizon runs multiple days to show PEth decay');
 
   console.log('All tests passed.');
 }

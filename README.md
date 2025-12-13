@@ -37,7 +37,14 @@ This simulator uses lightweight heuristic choices for interactivity, not for cli
 - Concentration in ‰: `BAC = grams_in_body / (r * weight_kg * 1.055)`.
 
 ### PEth synthesis/decay
-- Formation proportional to BAC: `8 ng/mL/h` at `1‰` BAC (linear scaling).
+- Formation proportional to BAC with linear scaling: configurable.
+  The literatue shows that the formation rate is somewhat nonlinear to BAC, but we use a simple linear scaling model.
+  The default is a heuristic chosen from literature at 1‰, so that it typically balances in concentrations above and below:
+  - `0.01% BAC (0.1 ‰): 0.002 μmol/L/h` → `0.002 × 704.6 ≈ 1.4 ng/mL/h.`
+  - `0.1% BAC (1 ‰): 0.016 μmol/L/h` → `0.016 × 704.6 ≈ 11.3 ng/mL/h.` (used for the default)
+  - `0.2% BAC (2 ‰): 0.025 μmol/L/h` → `0.025 × 704.6 ≈ 17.6 ng/mL/h.`
+  - `0.3% BAC (3 ‰): 0.029 μmol/L/h` → `0.029 × 704.6 ≈ 20.4 ng/mL/h.`
+  
 - Decay first-order with half-life `t½ = 4.5 days` (`k = ln(2)/(4.5*24)`).
 - Output is displayed as `µmol/L`, assuming PEth 16:0/18:1 molecular weight ≈704.6 g/mol (`µmol/L = ng/mL / 704.6`).
 

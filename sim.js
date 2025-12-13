@@ -1,7 +1,7 @@
-const PETH_MW_G_PER_MOL = 704.6; // Approx. PEth 16:0/18:1
+const PETH_MW_G_PER_MOL = 704.6; // Molecular weight of PEth 16:0/18:1
 const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood for Widmark volume
 
-function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5 }) {
+function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3 }) {
   if (!sessions || !sessions.length) return null;
   const sorted = sessions.slice().sort((a, b) => a.start - b.start);
   const startTime = sorted[0].start;
@@ -19,9 +19,8 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
   const elimGramsPerHour = elimPermillePerHour * distribVolumeKg;
   const absorptionK = 1.5 / 60; // 1.5 /hour as per-minute constant
 
-  // PEth parameters (heuristic): synthesis proportional to BAC, decay with half-life ~4.5 days
-  const formationRateNgPerMlPerHourAt1Permille = 8; // ng/mL/h when BAC = 1‰
-  const decayKPerHour = Math.log(2) / (decayHalfLifeDays * 24);
+// PEth parameters: synthesis proportional to BAC, decay with half-life ~4.5 days (default)
+const decayKPerHour = Math.log(2) / (decayHalfLifeDays * 24);
 
   const timeline = [];
   let stomachGrams = 0;
