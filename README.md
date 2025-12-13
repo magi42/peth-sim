@@ -27,12 +27,23 @@ npm test
 
 ## Model (simplified)
 
-References inform parameter ranges and physiology: e.g., [Gnann et al. 2018 (PubMed 30103144)](https://pubmed.ncbi.nlm.nih.gov/30103144/) and [Javors et al. 2023 (PubMed 36790103)](https://pubmed.ncbi.nlm.nih.gov/36790103/) describe PEth kinetics and half-life variability.
+### References
+The references inform parameter ranges and physiology:
+
+Alcohol absorption and elimination:
+- [Watson et al, 1981, Prediction of blood alcohol concentrations in human subjects. Updating the Widmark Equation.](https://doi.org/10.15288/jsa.1981.42.547)
+- [Maskell et al, 2018, Evidence based survey of the distribution volume of ethanol: Comparison of empirically determined values with anthropometric measures.](https://doi.org/10.1016/j.forsciint.2018.10.033)
+- [A. Jones, 2010, Evidence-based survey of the elimination rates of ethanol from blood with applications in forensic casework](https://doi.org/10.1016/j.forsciint.2010.02.021)
+
+PEth formation:
+- [Schröck et al, 2018 Determination of the formation rate of phosphatidylethanol by phospholipase D (PLD) in blood and test of two selective PLD inhibitors (PubMed 30103144)](https://pubmed.ncbi.nlm.nih.gov/30103144/)
+- [Stöth et al, 2023 Increase of PEth after Single Consumption of Alcohol and Evaluation of a Volumetric DBS Filter Paper Device  (PubMed 36790103)](https://pubmed.ncbi.nlm.nih.gov/36790103/) describe PEth kinetics and half-life variability.
+
 This simulator uses lightweight heuristic choices for interactivity, not for clinical use.
 
 ### Blood alcohol
 - Widmark volume of distribution: `r = 0.68` (male), `0.55` (female), multiplied by blood-water density `1.055` to convert to kg of water.
-- Absorption: first-order from stomach with `k_abs = 1.5 / h`.
+- Absorption: first-order from stomach with `k_abs ≈ 2 / h` on an empty stomach (t½ ~0.35 h), capped at ~80 g/h; meal selection scales both (e.g., heavy meal factor ~0.45, light snack ~0.8) to reflect slower gastric emptying and lower peak BAC from fed conditions.
 - Elimination: zero-order `0.15‰ / h` (≈0.015 g/dL/h). Age factor scales ±0.3% per year around 40 (bounded to 0.85–1.25x); grams/hour uses the same volume factor as BAC.
 - Concentration in ‰: `BAC = grams_in_body / (r * weight_kg * 1.055)`.
 
