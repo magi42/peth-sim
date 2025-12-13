@@ -228,6 +228,22 @@ form input:focus, form select:focus {
   align-items: flex-end;
   margin-bottom: 8px;
 }
+.meal-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 1;
+  min-width: 220px;
+}
+.meal-select {
+  min-width: 180px;
+  flex: 1;
+}
+.session-actions {
+  margin-left: auto;
+  display: flex;
+  align-self: flex-end;
+}
 .ethanol-input {
   display: flex;
   gap: 6px;

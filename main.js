@@ -23,7 +23,15 @@ const defaultSessions = [
   { start: '2025-01-08T18:00', end: '2025-01-08T23:30', ml: 700*0.38 }  // 70 cL of 38% Kossu
 ];
 
+const MEAL_PROFILES = {
+  empty: { factor: 1.0, labelKey: 'mealEmpty' },
+  light: { factor: 0.8, labelKey: 'mealLight' },
+  mixed: { factor: 0.6, labelKey: 'mealMixed' },
+  heavy: { factor: 0.45, labelKey: 'mealHeavy' },
+};
+
 function createSessionRow(session) {
+  const absProfile = session.absProfile || 'empty';
   const wrapper = document.createElement('div');
   wrapper.className = 'session-row';
   wrapper.innerHTML = `
@@ -35,15 +43,26 @@ function createSessionRow(session) {
       <label data-i18n="end">End</label>
       <input type="datetime-local" class="end" value="${session.end}" required />
     </div>
-    <div>
+    <div style="min-width:120px;">
       <label data-i18n="ethanolLabel">${translations[currentLang].ethanolLabel}</label>
       <div class="ethanol-input">
         <input type="number" class="grams" min="0.1" step="0.1" value="${session.ml}" required />
         <button type="button" class="calc-grams" aria-label="Calculate mL from volume and %">${translations[currentLang].calcBtn}</button>
       </div>
     </div>
-    <div style="align-self:center;">
-      <button type="button" class="remove-session" aria-label="Remove session">✕</button>
+    <div class="meal-row">
+      <div class="meal-select">
+        <label data-i18n="absProfileLabel">${translations[currentLang].absProfileLabel || 'Meal / stomach state'}</label>
+        <select class="abs-profile">
+          <option value="empty"${absProfile === 'empty' ? ' selected' : ''}>${translations[currentLang].mealEmpty}</option>
+          <option value="light"${absProfile === 'light' ? ' selected' : ''}>${translations[currentLang].mealLight}</option>
+          <option value="mixed"${absProfile === 'mixed' ? ' selected' : ''}>${translations[currentLang].mealMixed}</option>
+          <option value="heavy"${absProfile === 'heavy' ? ' selected' : ''}>${translations[currentLang].mealHeavy}</option>
+        </select>
+      </div>
+      <div class="session-actions">
+        <button type="button" class="remove-session" aria-label="Remove session">✕</button>
+      </div>
     </div>
   `;
   const removeBtn = wrapper.querySelector('.remove-session');
@@ -102,6 +121,17 @@ function toInputValue(date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function mealLabel(key) {
+  const t = translations[currentLang] || translations.en;
+  const map = {
+    empty: t.mealEmpty,
+    light: t.mealLight,
+    mixed: t.mealMixed,
+    heavy: t.mealHeavy,
+  };
+  return map[key] || key;
+}
+
 function getParams() {
   const sex = document.getElementById('sex').value;
   const weight = parseFloat(document.getElementById('weight').value);
@@ -114,7 +144,10 @@ function getParams() {
     const end = new Date(row.querySelector('.end').value);
     const ml = parseFloat(row.querySelector('.grams').value);
     const grams = mlToGrams(ml);
-    return { start, end, grams, ml };
+    const select = row.querySelector('.abs-profile');
+    const absProfile = select ? select.value : 'empty';
+    const absFactor = (MEAL_PROFILES[absProfile] && MEAL_PROFILES[absProfile].factor) || 1;
+    return { start, end, grams, ml, absProfile, absFactor };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0.0 && s.end > s.start);
   return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate };
 }
@@ -574,6 +607,10 @@ function applyTranslations(lang) {
   setText('time-step-note', t.timeStepNote);
   setText('half-note', t.halfNote);
   setText('formation-rate-note', t.formationRateNote);
+  setText('abs-rate-label', t.absRateLabel);
+  setText('abs-rate-note', t.absRateNote);
+  setText('abs-max-label', t.absMaxLabel);
+  setText('abs-max-note', t.absMaxNote);
   const totalEl = document.getElementById('calc-total');
   if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);
@@ -604,6 +641,16 @@ function applyTranslations(lang) {
   document.querySelectorAll('[data-i18n="end"]').forEach((el) => { el.textContent = t.end; });
   document.querySelectorAll('[data-i18n="ethanolLabel"]').forEach((el) => { el.textContent = t.ethanolLabel; });
   document.querySelectorAll('.calc-grams').forEach((el) => { el.textContent = t.calcBtn; });
+  document.querySelectorAll('.abs-profile').forEach((el) => {
+    const current = el.value;
+    el.options[0].textContent = t.mealEmpty;
+    el.options[1].textContent = t.mealLight;
+    el.options[2].textContent = t.mealMixed;
+    el.options[3].textContent = t.mealHeavy;
+    el.value = current;
+    const label = el.closest('div')?.querySelector('[data-i18n="absProfileLabel"]');
+    if (label) label.textContent = t.absProfileLabel;
+  });
   // Update existing drink rows' option texts
   document.querySelectorAll('.drink-row .drink-type option').forEach((opt) => {
     const value = opt.value;
