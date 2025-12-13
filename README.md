@@ -4,6 +4,8 @@ Single-page HTML app that lets you simulate blood alcohol concentration curves a
 
 You can use the simulator [here](http://magi.fi/ohjelmointi/bio/peth-sim/) (not necessarily the latest version).
 
+Creator: Marko Grönroos, magi@iki.fi, [magi.fi](https://magi.fi/), 2025.<br />
+
 ## Quick start
 
 ```bash
