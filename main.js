@@ -136,7 +136,7 @@ function render(result) {
   const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
 
   const bacOptions = { color: '#1c7ed6', yLabel: unitLabel(unit), warning: convertBac(0.5, unit), valueFormatter: (v) => formatBac(v, unit), axisLabel: t.axisTime, axisTick: 1.0};
-  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime, axisTick: 0.1 };
+  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', warning: .3, valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime, axisTick: 0.1 };
 
   drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions);
   drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions);
@@ -154,10 +154,14 @@ function render(result) {
   document.getElementById('model-note').textContent = note;
 }
 
-function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick}, highlight) {
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick }, highlight) {
   const { ctx, w, h } = ensureCanvasSize(canvas);
+  ctx.save();
   ctx.clearRect(0, 0, w, h);
-  if (!points.length) return;
+  if (!points.length) {
+    ctx.restore();
+    return;
+  }
 
   const padding = { l: 55, r: 14, t: 12, b: 40 };
   const times = points.map((p) => p.x.getTime());
@@ -184,15 +188,17 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   ctx.lineWidth = 1;
   ctx.textAlign = 'right';
   const gridLines = 5;
+  const tickStep = axisTick || (maxY / gridLines);
+  ctx.fillStyle = '#6c7585';
+  ctx.font = '12px var(--sans)';
   for (let i = 0; i <= gridLines; i++) {
-    const tick = Math.trunc(i*axisTick*100)/100;
+    const tick = i * tickStep;
     const y = scaleY(tick);
-    console.log(tick, y, padding.b, h, i);
     ctx.beginPath();
     ctx.moveTo(padding.l, y);
     ctx.lineTo(w - padding.r, y);
     ctx.stroke();
-    ctx.fillText(tick, 50, y+3);
+    ctx.fillText(tick.toFixed(2), padding.l - 6, y + 4);
   }
 
   // Vertical midnight ticks
@@ -244,7 +250,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   ctx.fillStyle = '#4a5667';
   ctx.font = '12px var(--sans)';
   ctx.fillText(yLabel, 40, padding.t + 6);
-  ctx.textAlign = 'right';
+  ctx.textAlign = 'center';
   ctx.fillText(axisLabel || 'Time', w / 2, h - 8);
 
   // Ticks on x
@@ -298,6 +304,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     ctx.textAlign = prevAlign;
     ctx.textBaseline = prevBaseline;
   }
+  ctx.restore();
 }
 
 // Kick off initial render
@@ -355,7 +362,6 @@ function enableHover(canvas, points, options) {
         nearest = points[i];
       }
     }
-    console.log(options);
     drawChart(canvas, points, options, {
       point: nearest,
       value: options.valueFormatter ? options.valueFormatter(nearest.y) : nearest.y.toFixed(2),
