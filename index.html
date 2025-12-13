@@ -22,6 +22,14 @@
           <span id="lang-flag" class="lang-flag">🇬🇧</span>
         </div>
       </div>
+      <div class="field-inline field">
+        <label for="bac-unit" id="bac-unit-label">BAC unit</label>
+        <select id="bac-unit">
+          <option value="permille">‰</option>
+          <option value="percent">% (g/100mL)</option>
+          <option value="mgL">mg/L</option>
+        </select>
+      </div>
       <form id="sim-form">
         <div class="section-title" id="person-title">Person</div>
         <div class="person-fields">
@@ -45,6 +53,7 @@
         <div class="section-title" id="sessions-title">Drinking sessions</div>
         <div id="sessions" class="sessions"></div>
         <button type="button" class="btn" id="add-session">+ Add drinking period</button>
+
         <div class="btn-row">
           <button type="button" class="btn ghost" id="more-params">Additional parameters</button>
           <button type="submit" class="btn" id="run-btn">Run simulation</button>

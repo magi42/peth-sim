@@ -25,7 +25,7 @@ npm test
 
 ## Model (simplified)
 
-References inform parameter ranges and physiology: e.g., [Gnann et al. 2018 (PubMed 30103144)](https://pubmed.ncbi.nlm.nih.gov/30103144/) and [https://pubmed.ncbi.nlm.nih.gov/36790103/](Javors et al. 2023 (PubMed 36790103)) describe PEth kinetics and half-life variability.
+References inform parameter ranges and physiology: e.g., [Gnann et al. 2018 (PubMed 30103144)](https://pubmed.ncbi.nlm.nih.gov/30103144/) and [Javors et al. 2023 (PubMed 36790103)](https://pubmed.ncbi.nlm.nih.gov/36790103/) describe PEth kinetics and half-life variability.
 This simulator uses lightweight heuristic choices for interactivity, not for clinical use.
 
 ### Blood alcohol

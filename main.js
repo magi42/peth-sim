@@ -10,6 +10,7 @@ const paramsForm = document.getElementById('params-form');
 const paramsClose = document.getElementById('params-close');
 const langSelect = document.getElementById('lang-select');
 const langFlag = document.getElementById('lang-flag');
+const bacUnitSelect = document.getElementById('bac-unit');
 let activeGramsInput = null;
 
 let currentLang = detectLang();
@@ -86,6 +87,10 @@ paramsForm.addEventListener('submit', (e) => {
 langSelect.addEventListener('change', () => {
   applyTranslations(langSelect.value);
 });
+bacUnitSelect.addEventListener('change', () => {
+  const result = lastResult || runSim(getParams());
+  render(result);
+});
 
 function toInputValue(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -112,20 +117,26 @@ function render(result) {
   if (!result) return;
   lastResult = result;
   const t = translations[currentLang] || translations.en;
+  const unit = bacUnitSelect.value || 'permille';
   const { timeline } = result;
-  const peakBAC = Math.max(...timeline.map((t) => t.bac));
-  const timeOver = timeline.filter((t) => t.bac >= 0.5).length * 5; // minutes
+  const peakBACPermille = Math.max(...timeline.map((t) => t.bac));
+  const peakBAC = convertBac(peakBACPermille, unit);
+  const thresholdPermille = 0.5;
+  const thresholdConverted = convertBac(thresholdPermille, unit);
+  const timeOver = timeline.filter((t) => t.bac >= thresholdPermille).length * 5; // minutes
   const peakPEthUmol = Math.max(...timeline.map((t) => toUmolFn(t.pethNgMl)));
 
-  document.getElementById('peak-bac').textContent = `${peakBAC.toFixed(2)}‰`;
+  document.getElementById('peak-bac').textContent = formatBac(peakBAC, unit);
+  const thresholdLabel = formatBac(thresholdConverted, unit);
+  document.getElementById('time-over-label').textContent = `${t.statTimeOver} ${thresholdLabel}`;
   document.getElementById('time-over').textContent = `${(timeOver / 60).toFixed(1)} h`;
   document.getElementById('peak-peth').textContent = `${peakPEthUmol.toFixed(3)} µmol/L`;
 
-  const bacPoints = timeline.map((t) => ({ x: t.time, y: t.bac }));
+  const bacPoints = timeline.map((t) => ({ x: t.time, y: convertBac(t.bac, unit) }));
   const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
 
-  const bacOptions = { color: '#1c7ed6', yLabel: '‰', warning: 0.5, valueFormatter: (v) => `${v.toFixed(3)}‰`, axisLabel: t.axisTime };
-  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime };
+  const bacOptions = { color: '#1c7ed6', yLabel: unitLabel(unit), warning: convertBac(0.5, unit), valueFormatter: (v) => formatBac(v, unit), axisLabel: t.axisTime, axisTick: 1.0};
+  const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime, axisTick: 0.1 };
 
   drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions);
   drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions);
@@ -143,12 +154,12 @@ function render(result) {
   document.getElementById('model-note').textContent = note;
 }
 
-function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel }, highlight) {
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick}, highlight) {
   const { ctx, w, h } = ensureCanvasSize(canvas);
   ctx.clearRect(0, 0, w, h);
   if (!points.length) return;
 
-  const padding = { l: 45, r: 14, t: 12, b: 40 };
+  const padding = { l: 55, r: 14, t: 12, b: 40 };
   const times = points.map((p) => p.x.getTime());
   const minT = Math.min(...times);
   const maxT = Math.max(...times);
@@ -159,7 +170,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   const scaleX = (t) => padding.l + ((t - minT) / (maxT - minT || 1)) * (w - padding.l - padding.r);
   const scaleY = (v) => h - padding.b - ((v - minY) / (maxY - minY || 1)) * (h - padding.t - padding.b);
 
-  // day ticks at midnight boundaries
+  // Day ticks at midnight boundaries
   const midnightTicks = [];
   const firstMidnight = new Date(minT);
   firstMidnight.setHours(0, 0, 0, 0);
@@ -168,17 +179,21 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     midnightTicks.push(t);
   }
 
-  // Grid
+  // Horizontal grid lines
   ctx.strokeStyle = '#e6ecf4';
   ctx.lineWidth = 1;
-  ctx.beginPath();
+  ctx.textAlign = 'right';
   const gridLines = 5;
   for (let i = 0; i <= gridLines; i++) {
-    const y = padding.t + (i / gridLines) * (h - padding.t - padding.b);
+    const tick = Math.trunc(i*axisTick*100)/100;
+    const y = scaleY(tick);
+    console.log(tick, y, padding.b, h, i);
+    ctx.beginPath();
     ctx.moveTo(padding.l, y);
     ctx.lineTo(w - padding.r, y);
+    ctx.stroke();
+    ctx.fillText(tick, 50, y+3);
   }
-  ctx.stroke();
 
   // Vertical midnight ticks
   if (midnightTicks.length) {
@@ -228,8 +243,8 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   // Axis labels
   ctx.fillStyle = '#4a5667';
   ctx.font = '12px var(--sans)';
-  ctx.fillText(yLabel, 6, padding.t + 12);
-  ctx.textAlign = 'center';
+  ctx.fillText(yLabel, 40, padding.t + 6);
+  ctx.textAlign = 'right';
   ctx.fillText(axisLabel || 'Time', w / 2, h - 8);
 
   // Ticks on x
@@ -340,6 +355,7 @@ function enableHover(canvas, points, options) {
         nearest = points[i];
       }
     }
+    console.log(options);
     drawChart(canvas, points, options, {
       point: nearest,
       value: options.valueFormatter ? options.valueFormatter(nearest.y) : nearest.y.toFixed(2),
@@ -395,6 +411,7 @@ function applyTranslations(lang) {
   setText('title', t.title);
   setText('lead', t.lead);
   setText('lang-label', t.langLabel);
+  setText('bac-unit-label', t.bacUnit);
   setText('person-title', t.personTitle);
   setText('sex-label', t.sex);
   setText('weight-label', t.weight);
@@ -441,3 +458,21 @@ function detectLang() {
 
 applyTranslations(currentLang);
 render(runSim(getParams()));
+
+function convertBac(valuePermille, unit) {
+  if (unit === 'percent') return valuePermille / 10;
+  if (unit === 'mgL') return valuePermille * 1000;
+  return valuePermille;
+}
+
+function formatBac(valuePermilleConverted, unit) {
+  const suffix = unit === 'percent' ? '%' : unit === 'mgL' ? ' mg/L' : '‰';
+  const digits = unit === 'mgL' ? 1 : 2;
+  return `${valuePermilleConverted.toFixed(digits)}${suffix}`;
+}
+
+function unitLabel(unit) {
+  if (unit === 'percent') return '%';
+  if (unit === 'mgL') return 'mg/L';
+  return '‰';
+}
