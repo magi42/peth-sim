@@ -196,11 +196,10 @@ form input:focus, form select:focus {
   cursor: pointer;
   transition: transform 120ms ease, box-shadow 120ms ease;
   box-shadow: 0 10px 30px rgba(16, 152, 173, 0.22);
-  margin-top: 16px;
 }
 
-#add-session {
-  padding: 1px 5px;
+#add-session, #add-drink {
+  padding: 1px 3px;
   border-radius: 6px;
 }
 
@@ -256,6 +255,49 @@ form input:focus, form select:focus {
   font-weight: 600;
   color: #4c5563;
 }
+.drink-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.drink-headers {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.5fr) minmax(70px, 0.6fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr) minmax(110px, 1fr) auto;
+  gap: 6px;
+  font-weight: 700;
+  color: #4a5667;
+  font-size: 13px;
+  padding-bottom: 4px;
+}
+.drink-row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1.5fr) minmax(70px, 0.6fr) minmax(90px, 0.8fr) minmax(90px, 0.8fr) minmax(110px, 1fr) auto;
+  gap: 6px;
+  align-items: end;
+}
+.drink-row select,
+.drink-row input {
+  width: 100%;
+}
+.drink-row select {
+  min-width: 200px;
+}
+.drink-row .drink-doses {
+  font-weight: 700;
+  color: #1d2733;
+  align-self: center;
+}
+.drink-row .remove-drink {
+  background: #f1f3f8;
+  border: 1px solid #dfe4ee;
+  border-radius: 6px;
+  padding: 1px 3px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #4c5563;
+}
+.drink-row .remove-drink:hover { background: #e5eaf4; }
 .session-row .remove-session {
   align-self: flex-end;
 }
@@ -275,7 +317,7 @@ form input:focus, form select:focus {
   background: #fff;
   border-radius: 12px;
   padding: 16px;
-  width: min(320px, 90vw);
+  width: min(720px, 96vw);
   box-shadow: 0 16px 40px rgba(12, 28, 56, 0.18);
   border: 1px solid #dfe7f5;
 }
@@ -287,15 +329,63 @@ form input:focus, form select:focus {
 }
 .modal-close {
   background: #f1f3f8;
+  margin: 0 0 16px 0;
   border: 1px solid #dfe4ee;
   border-radius: 8px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   cursor: pointer;
   font-weight: 700;
 }
 .modal-actions {
   margin-top: 10px;
   margin-bottom: 6px;
+}
+
+#calc-title {
+  margin: 0 0 20px;
+}
+
+.calc-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+.tab-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  align-self: flex-start;
+}
+.tab-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #dfe4ee;
+  background: #f5f7fb;
+  cursor: pointer;
+  font-weight: 600;
+}
+.tab-btn.active {
+  background: #1c7ed6;
+  color: #fff;
+  border-color: #1c7ed6;
+}
+.tab-panel.hidden {
+  display: none;
+}
+.tab-layout {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.tab-panels {
+  flex: 1;
+}
+.calc-total {
+  font-weight: 700;
+  color: #1d2733;
 }
 .cards {
   display: grid;

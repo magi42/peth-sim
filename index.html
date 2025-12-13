@@ -102,14 +102,29 @@
         <button id="calc-close" class="modal-close" aria-label="Close">✕</button>
       </div>
       <form id="calc-form">
-        <label for="calc-volume" id="calc-volume-label">Volume (cl)</label>
-          <input id="calc-volume" type="number" min="1" step="0.1" value="50" />
-          <label for="calc-abv" id="calc-abv-label">Alcohol % (ABV)</label>
-        <input id="calc-abv" type="number" min="0" max="100" step="0.1" value="5.5" />
-        <div class="modal-actions">
-          <button type="submit" class="btn" id="calc-apply">Apply to session</button>
+        <div class="tab-layout">
+          <div class="tab-panels">
+            <div class="tab-panel">
+              <div class="drink-headers">
+                <span id="hdr-drink">Drink</span>
+                <span id="hdr-count">Qty</span>
+                <span id="hdr-vol">cL</span>
+                <span id="hdr-abv">alc%</span>
+                <span id="hdr-doses">Doses</span>
+                <span></span>
+              </div>
+              <div id="drink-list" class="drink-list"></div>
+              <button type="button" class="btn ghost" id="add-drink">Add drink</button>
+            </div>
+          </div>
         </div>
-        <div class="note" id="calc-note">Pure ethanol (mL) = volume (cl) × 10 × (ABV/100). Grams are derived with density 0.789 g/mL.</div>
+        <div class="calc-footer">
+          <div class="calc-total" id="calc-total">Total: 0 mL (0 doses)</div>
+          <div class="modal-actions" style="margin:0;">
+            <button type="submit" class="btn" id="calc-apply">Apply to session</button>
+          </div>
+        </div>
+        <div class="note" id="calc-note">Calculator converts selected drinks to pure ethanol (mL); simulation converts to grams with density 0.789 g/mL.</div>
       </form>
     </div>
   </div>

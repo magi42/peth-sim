@@ -11,6 +11,8 @@ const paramsClose = document.getElementById('params-close');
 const langSelect = document.getElementById('lang-select');
 const langFlag = document.getElementById('lang-flag');
 const bacUnitSelect = document.getElementById('bac-unit');
+const drinkList = document.getElementById('drink-list');
+const addDrinkBtn = document.getElementById('add-drink');
 let activeGramsInput = null;
 
 let currentLang = detectLang();
@@ -51,6 +53,7 @@ function createSessionRow(session) {
 }
 
 defaultSessions.forEach(createSessionRow);
+createDrinkRow();
 
 addSessionBtn.addEventListener('click', () => {
   const now = new Date();
@@ -58,6 +61,8 @@ addSessionBtn.addEventListener('click', () => {
   const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
   createSessionRow({ start: toInputValue(start), end: toInputValue(end), ml: 40 });
 });
+
+addDrinkBtn.addEventListener('click', () => createDrinkRow());
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -313,7 +318,8 @@ render(runSim(getParams()));
 function openCalcModal(targetInput) {
   activeGramsInput = targetInput;
   calcModal.classList.remove('hidden');
-  document.getElementById('calc-volume').focus();
+  const vol = document.getElementById('calc-volume');
+  if (vol) vol.focus();
 }
 
 function closeCalcModal() {
@@ -323,13 +329,15 @@ function closeCalcModal() {
 
 calcForm.addEventListener('submit', (e) => {
   e.preventDefault();
-  const volCl = parseFloat(document.getElementById('calc-volume').value);
-  const abv = parseFloat(document.getElementById('calc-abv').value);
-  if (!activeGramsInput || Number.isNaN(volCl) || Number.isNaN(abv)) {
+  if (!activeGramsInput) {
     closeCalcModal();
     return;
   }
-  const pureMl = volCl * 10 * (abv / 100); // cl -> mL, scaled by ABV
+  const pureMl = calcPureMl();
+  if (pureMl <= 0) {
+    closeCalcModal();
+    return;
+  }
   activeGramsInput.value = pureMl.toFixed(1);
   closeCalcModal();
 });
@@ -338,6 +346,59 @@ calcClose.addEventListener('click', closeCalcModal);
 calcModal.addEventListener('click', (e) => {
   if (e.target === calcModal) closeCalcModal();
 });
+
+// Ensure any legacy tab handlers are no-ops; tabs were removed.
+
+function createDrinkRow(type = 'beer', qty = 1) {
+  const row = document.createElement('div');
+  row.className = 'drink-row';
+  const options = [
+    { value: 'beer', label: drinkLabel('beer') },
+    { value: 'beer05', label: drinkLabel('beer05') },
+    { value: 'beerStrong', label: drinkLabel('beerStrong') },
+    { value: 'cider', label: drinkLabel('cider') },
+    { value: 'wine', label: drinkLabel('wine') },
+    { value: 'wine16', label: drinkLabel('wine16') },
+    { value: 'wineBottle75', label: drinkLabel('wineBottle75') },
+    { value: 'wineBottle100', label: drinkLabel('wineBottle100') },
+    { value: 'wineCan200', label: drinkLabel('wineCan200') },
+    { value: 'wineCan300', label: drinkLabel('wineCan300') },
+    { value: 'longdrink', label: drinkLabel('longdrink') },
+    { value: 'bottle05', label: drinkLabel('bottle05') },
+    { value: 'bottle07', label: drinkLabel('bottle07') },
+    { value: 'bottle10', label: drinkLabel('bottle10') },
+  ];
+  const preset = drinkPreset(type);
+  row.innerHTML = `
+    <select class="drink-type">
+      ${options.map((o, idx) => `<option value="${o.value}" id="opt-row-${o.value}-${idx}">${o.label}</option>`).join('')}
+    </select>
+    <input type="number" class="drink-count" min="0" step="1" value="1" aria-label="${(translations[currentLang] || translations.en).calcStdQty}" />
+    <input type="number" class="drink-vol" min="0" step="0.1" value="${preset.volCl.toFixed(1)}" aria-label="${(translations[currentLang] || translations.en).calcStdQty}" />
+    <input type="number" class="drink-abv" min="0" max="100" step="0.1" value="${preset.abv.toFixed(1)}" aria-label="${(translations[currentLang] || translations.en).calcShotAbv}" />
+    <div class="drink-doses">0 ${(translations[currentLang] || translations.en).calcDoses || 'doses'}</div>
+    <button type="button" class="remove-drink" aria-label="Remove drink">✕</button>
+  `;
+  row.querySelector('.drink-type').value = type;
+  row.querySelector('.remove-drink').addEventListener('click', () => { row.remove(); updateCalcTotal(); });
+  row.querySelector('.drink-type').addEventListener('change', (e) => {
+    const p = drinkPreset(e.target.value);
+    const vol = row.querySelector('.drink-vol');
+    const abv = row.querySelector('.drink-abv');
+    if (vol) vol.value = p.volCl.toFixed(1);
+    if (abv) abv.value = p.abv.toFixed(1);
+    updateCalcTotal();
+  });
+  ['.drink-count', '.drink-vol', '.drink-abv'].forEach((sel) => {
+    const el = row.querySelector(sel);
+    if (el) {
+      el.addEventListener('input', updateCalcTotal);
+      el.addEventListener('blur', updateCalcTotal);
+    }
+  });
+  drinkList.appendChild(row);
+  updateCalcTotal();
+}
 
 function enableHover(canvas, points, options) {
   if (!points.length) return;
@@ -401,6 +462,59 @@ function mlToGrams(ml, abv = 100) {
   return ml * 0.789 * (abv / 100);
 }
 
+function formatMl(ml) {
+  return `${ml.toFixed(1)} mL`;
+}
+
+function formatDoses(totalMl, label) {
+  const doses = totalMl / 16;
+  return `${doses.toFixed(1)} ${label}`;
+}
+
+function calcPureMl() {
+  const rows = Array.from(drinkList.querySelectorAll('.drink-row'));
+  const presets = {
+    beer: { volCl: 33, abv: 5 },
+    beer05: { volCl: 50, abv: 5 },
+    cider: { volCl: 33, abv: 4.7 },
+    wine: { volCl: 12, abv: 12 },
+    longdrink: { volCl: 33, abv: 5.5 },
+    bottle05: { volCl: 50, abv: 38 },
+    bottle07: { volCl: 70, abv: 38 },
+    bottle10: { volCl: 100, abv: 38 },
+  };
+  return rows.reduce((sum, row) => {
+    const type = row.querySelector('.drink-type').value;
+    const count = parseFloat(row.querySelector('.drink-count')?.value) || 0;
+    const volInput = row.querySelector('.drink-vol');
+    const abvInput = row.querySelector('.drink-abv');
+    const preset = presets[type] || presets.beer;
+    const volCl = parseFloat(volInput?.value) || preset.volCl;
+    const abv = parseFloat(abvInput?.value) || preset.abv;
+    return sum + count * volCl * 10 * (abv / 100);
+  }, 0);
+}
+
+function updateCalcTotal() {
+  const total = calcPureMl();
+  const label = (translations[currentLang] || translations.en).calcTotal || 'Total';
+  const dosesLabel = (translations[currentLang] || translations.en).calcDoses || 'doses';
+  const rows = Array.from(drinkList.querySelectorAll('.drink-row'));
+  rows.forEach((row) => {
+    const type = row.querySelector('.drink-type').value;
+    const preset = drinkPreset(type);
+    const count = parseFloat(row.querySelector('.drink-count')?.value) || 0;
+    const volCl = parseFloat(row.querySelector('.drink-vol')?.value) || preset.volCl;
+    const abv = parseFloat(row.querySelector('.drink-abv')?.value) || preset.abv;
+    const pureMl = count * volCl * 10 * (abv / 100);
+    const doses = pureMl / 16;
+    const doseEl = row.querySelector('.drink-doses');
+    if (doseEl) doseEl.textContent = `${doses.toFixed(1)} ${dosesLabel}`;
+  });
+  const el = document.getElementById('calc-total');
+  if (el) el.textContent = `${label}: ${formatMl(total)} (${formatDoses(total, dosesLabel)})`;
+}
+
 function applyTranslations(lang) {
   const t = translations[lang] || translations.en;
   currentLang = lang;
@@ -411,6 +525,10 @@ function applyTranslations(lang) {
     langFlag.textContent = opt ? opt.dataset.flag || '' : '';
   }
   const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+  const setOptionText = (id, text) => {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
   };
@@ -436,10 +554,27 @@ function applyTranslations(lang) {
   setText('bac-chart-label', t.chartBAC);
   setText('peth-chart-label', t.chartPEth);
   setText('calc-title', t.modalTitle);
-  setText('calc-volume-label', t.modalVolume);
-  setText('calc-abv-label', t.modalAbv);
   setText('calc-apply', t.modalApply);
   setText('calc-note', t.modalNote);
+  setText('tab-std', t.calcTabStd);
+  setText('calc-std-type-label', t.calcStdType);
+  setText('calc-std-count-label', t.calcStdQty);
+  setText('add-drink', t.calcAddDrink);
+  setText('hdr-drink', t.hdrDrink);
+  setText('hdr-count', t.hdrCount);
+  setText('hdr-vol', t.hdrVol);
+  setText('hdr-abv', t.hdrAbv);
+  setText('hdr-doses', t.hdrDoses);
+  const totalEl = document.getElementById('calc-total');
+  if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
+  setOptionText('opt-beer', t.calcOptBeer);
+  setOptionText('opt-beer05', t.calcOptBeer05);
+  setOptionText('opt-cider', t.calcOptCider);
+  setOptionText('opt-wine', t.calcOptWine);
+  setOptionText('opt-longdrink', t.calcOptLongdrink);
+  setOptionText('opt-bottle05', t.calcOptBottle05);
+  setOptionText('opt-bottle07', t.calcOptBottle07);
+  setOptionText('opt-bottle10', t.calcOptBottle10);
   setText('params-title', t.paramsTitle);
   setText('time-step-label', t.timeStep);
   setText('params-apply', t.paramsApply);
@@ -454,12 +589,58 @@ function applyTranslations(lang) {
   document.querySelectorAll('[data-i18n="end"]').forEach((el) => { el.textContent = t.end; });
   document.querySelectorAll('[data-i18n="ethanolLabel"]').forEach((el) => { el.textContent = t.ethanolLabel; });
   document.querySelectorAll('.calc-grams').forEach((el) => { el.textContent = t.calcBtn; });
+  // Update existing drink rows' option texts
+  document.querySelectorAll('.drink-row .drink-type option').forEach((opt) => {
+    const value = opt.value;
+    opt.textContent = drinkLabel(value);
+  });
   if (lastResult) render(lastResult);
 }
 
 function detectLang() {
   const nav = (navigator.language || 'en').slice(0, 2).toLowerCase();
   return translations[nav] ? nav : 'en';
+}
+
+function drinkLabel(key) {
+  const t = translations[currentLang] || translations.en;
+  const map = {
+    beer: t.calcOptBeer,
+    beer05: t.calcOptBeer05,
+    beerStrong: t.calcOptBeerStrong,
+    cider: t.calcOptCider,
+    wine: t.calcOptWine,
+    wine16: t.calcOptWine16,
+    wineBottle75: t.calcOptWineBottle75,
+    wineBottle100: t.calcOptWineBottle100,
+    wineCan200: t.calcOptWineCan200,
+    wineCan300: t.calcOptWineCan300,
+    longdrink: t.calcOptLongdrink,
+    bottle05: t.calcOptBottle05,
+    bottle07: t.calcOptBottle07,
+    bottle10: t.calcOptBottle10,
+  };
+  return map[key] || key;
+}
+
+function drinkPreset(key) {
+  const presets = {
+    beer: { volCl: 33, abv: 5 },
+    beer05: { volCl: 50, abv: 5 },
+    beerStrong: { volCl: 33, abv: 8 },
+    cider: { volCl: 33, abv: 4.7 },
+    wine: { volCl: 12, abv: 12 },
+    wine16: { volCl: 16, abv: 12 },
+    wineBottle75: { volCl: 75, abv: 12 },
+    wineBottle100: { volCl: 100, abv: 12 },
+    wineCan200: { volCl: 200, abv: 12 },
+    wineCan300: { volCl: 300, abv: 12 },
+    longdrink: { volCl: 33, abv: 5.5 },
+    bottle05: { volCl: 50, abv: 38 },
+    bottle07: { volCl: 70, abv: 38 },
+    bottle10: { volCl: 100, abv: 38 },
+  };
+  return presets[key] || presets.beer;
 }
 
 applyTranslations(currentLang);
