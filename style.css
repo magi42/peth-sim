@@ -101,6 +101,9 @@ form input, form select {
   background: #fff;
   font-size: 14px;
 }
+form input[type="checkbox"] {
+  width: auto;
+}
 
 .person-fields {
   display: flex;
@@ -171,7 +174,6 @@ input.grams {
    NOTE: The session-row button style currently overlaps this. */
 button.remove-session {
   width: auto;
-  margin-top: 15px;
   padding: 4px 4px;
   font-size: 14px;
 }
@@ -247,6 +249,17 @@ form input:focus, form select:focus {
   display: flex;
   align-self: flex-end;
 }
+.session-options-btn {
+  background: #f1f3f8;
+  border: 1px solid #dfe4ee;
+  border-radius: 3px;
+  padding: 3px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #4c5563;
+  line-height: 1.2;
+}
+.session-options-btn:hover { background: #e5eaf4; }
 .ethanol-input {
   display: flex;
   gap: 6px;
@@ -459,4 +472,9 @@ canvas {
 @media (max-width: 860px) {
   .layout { grid-template-columns: 1fr; }
   canvas { height: 220px; }
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }

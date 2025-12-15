@@ -154,8 +154,32 @@
         <input id="formation-rate" type="number" min="1" max="50" step="0.1" value="11.3" />
         <div class="input-note" id="formation-rate-note">Derived from 0.016 μmol/L/h at 1‰ ≈ 11.3 ng/mL/h (PEth 16:0/18:1).</div>
 
+        <div class="checkbox-row">
+          <input type="checkbox" id="absorption-enabled" checked />
+          <label for="absorption-enabled" id="absorption-enabled-label">Use absorption model (stomach → blood)</label>
+        </div>
+
         <div class="modal-actions">
           <button type="submit" class="btn" id="params-apply">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Session options modal -->
+  <div id="session-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="session-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="session-title">Session options</h3>
+        <button id="session-close" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <form id="session-form">
+        <div class="checkbox-row">
+          <input type="checkbox" id="use-end-time" checked />
+          <label for="use-end-time" id="use-end-time-label">Use end time (spread dose over duration)</label>
+        </div>
+        <div class="modal-actions">
+          <button type="submit" class="btn" id="session-apply">Apply</button>
         </div>
       </form>
     </div>

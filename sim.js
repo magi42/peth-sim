@@ -3,12 +3,12 @@ const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood for Widmark volu
 const BASE_ABS_K_PER_H = 2.0; // Empty stomach first-order absorption rate (~t1/2 0.35 h)
 const BASE_ABS_CAP_G_PER_H = 80; // Upper cap for absorption on empty stomach
 
-function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = BASE_ABS_K_PER_H, absMax = BASE_ABS_CAP_G_PER_H }) {
+function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = BASE_ABS_K_PER_H, absMax = BASE_ABS_CAP_G_PER_H, absorptionEnabled = true }) {
   if (!sessions || !sessions.length) return null;
   const sorted = sessions.slice().sort((a, b) => a.start - b.start);
   const startTime = sorted[0].start;
   const endTime = sorted[sorted.length - 1].end;
-  const horizonHours = Math.max(96, (endTime - startTime) / 3.6e6 + 48);
+  const horizonHours = Math.max(96, ((endTime || startTime) - startTime) / 3.6e6 + 48);
   const stepMin = Math.max(1, Math.min(120, stepMinutes || 5));
   const baseSteps = Math.ceil((horizonHours * 60) / stepMin);
   const targetPethNgMl = 0.05 * PETH_MW_G_PER_MOL; // drop below 0.05 µmol/L
@@ -31,17 +31,21 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
   let peth = 0;
   let currentAbsFactor = 1;
 
+  const incrementalSessions = sorted.filter((s) => absorptionEnabled && s.useEndTime !== false && s.end && s.end > s.start);
+  const immediateSessions = sorted.filter((s) => !incrementalSessions.includes(s));
+  const consumed = new Set();
+
   let sessionIdx = 0;
-  let currentSession = sorted[sessionIdx];
+  let currentSession = incrementalSessions[sessionIdx];
 
   for (let i = 0; ; i++) {
     const tMinutes = i * stepMin;
     const currentTime = new Date(startTime.getTime() + tMinutes * 60000);
 
     // Add alcohol being consumed during active sessions
-    while (currentSession && currentTime > currentSession.end && sessionIdx < sorted.length - 1) {
+    while (currentSession && currentTime > currentSession.end && sessionIdx < incrementalSessions.length - 1) {
       sessionIdx += 1;
-      currentSession = sorted[sessionIdx];
+      currentSession = incrementalSessions[sessionIdx];
     }
     if (currentSession && currentTime >= currentSession.start && currentTime <= currentSession.end) {
       const durationMin = (currentSession.end - currentSession.start) / 60000;
@@ -49,6 +53,20 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
       stomachGrams += ingestionRate * stepMinutes;
       currentAbsFactor = currentSession.absFactor || 1;
     }
+
+    // Immediate sessions: add dose at start time (either to stomach or directly to blood)
+    immediateSessions.forEach((s, idx) => {
+      if (consumed.has(idx)) return;
+      if (currentTime >= s.start) {
+        if (absorptionEnabled) {
+          stomachGrams += s.grams;
+          currentAbsFactor = s.absFactor || 1;
+        } else {
+          bloodGrams += s.grams;
+        }
+        consumed.add(idx);
+      }
+    });
 
     if (!currentSession && stomachGrams <= 0) {
       currentAbsFactor = 1;
@@ -99,6 +117,7 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
       stepMinutes: stepMin,
       absRate,
       absMax,
+      absorptionEnabled,
     },
     startTime,
   };

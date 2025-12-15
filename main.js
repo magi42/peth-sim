@@ -5,6 +5,10 @@ const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
 const calcModal = document.getElementById('calc-modal');
 const calcForm = document.getElementById('calc-form');
 const calcClose = document.getElementById('calc-close');
+const sessionModal = document.getElementById('session-modal');
+const sessionForm = document.getElementById('session-form');
+const sessionClose = document.getElementById('session-close');
+const useEndTimeCheckbox = document.getElementById('use-end-time');
 const paramsModal = document.getElementById('params-modal');
 const paramsForm = document.getElementById('params-form');
 const paramsClose = document.getElementById('params-close');
@@ -17,10 +21,11 @@ let activeGramsInput = null;
 
 let currentLang = detectLang();
 let lastResult = null;
+let sessionIdCounter = 0;
 
 const defaultSessions = [
-  { start: '2025-01-01T17:00', end: '2025-01-01T21:00', ml: 10*1*70*0.38 }, // One 70 cL of 38% Kossu
-  { start: '2025-01-02T10:00', end: '2025-01-02T14:00', ml: 10*3*50*0.08 }  // Three big cans of 8% beers for hangover
+  { start: '2025-01-01T17:00', end: '2025-01-01T21:00', ml: 10*1*70*0.38, useEndTime: true }, // One 70 cL of 38% Kossu
+  { start: '2025-01-02T10:00', end: '2025-01-02T14:00', ml: 10*3*50*0.08, useEndTime: true }  // Three big cans of 8% beers for hangover
 ];
 
 const MEAL_PROFILES = {
@@ -32,8 +37,11 @@ const MEAL_PROFILES = {
 
 function createSessionRow(session) {
   const absProfile = session.absProfile || 'empty';
+  const useEndTime = session.useEndTime !== false;
   const wrapper = document.createElement('div');
   wrapper.className = 'session-row';
+  wrapper.id = `session-${++sessionIdCounter}`;
+  wrapper.dataset.useEndTime = useEndTime ? 'true' : 'false';
   wrapper.innerHTML = `
     <div>
       <label data-i18n="start">Start</label>
@@ -41,7 +49,7 @@ function createSessionRow(session) {
     </div>
     <div>
       <label data-i18n="end">End</label>
-      <input type="datetime-local" class="end" value="${session.end}" required />
+      <input type="datetime-local" class="end" value="${session.end || ''}" ${useEndTime ? '' : 'disabled'} ${useEndTime ? 'required' : ''} />
     </div>
     <div style="min-width:120px;">
       <label data-i18n="ethanolLabel">${translations[currentLang].ethanolLabel}</label>
@@ -61,6 +69,7 @@ function createSessionRow(session) {
         </select>
       </div>
       <div class="session-actions">
+        <button type="button" class="session-options-btn" aria-label="Session options">…</button>
         <button type="button" class="remove-session" aria-label="Remove session">✕</button>
       </div>
     </div>
@@ -68,6 +77,8 @@ function createSessionRow(session) {
   const removeBtn = wrapper.querySelector('.remove-session');
   if (removeBtn) removeBtn.addEventListener('click', () => wrapper.remove());
   wrapper.querySelector('.calc-grams').addEventListener('click', () => openCalcModal(wrapper.querySelector('.grams')));
+  const optsBtn = wrapper.querySelector('.session-options-btn');
+  if (optsBtn) optsBtn.addEventListener('click', () => openSessionModal(wrapper));
   sessionsEl.appendChild(wrapper);
 }
 
@@ -108,6 +119,35 @@ paramsForm.addEventListener('submit', (e) => {
   paramsModal.classList.add('hidden');
 });
 
+sessionClose.addEventListener('click', () => {
+  sessionModal.classList.add('hidden');
+  sessionModal.dataset.target = '';
+});
+sessionModal.addEventListener('click', (e) => {
+  if (e.target === sessionModal) {
+    sessionModal.classList.add('hidden');
+    sessionModal.dataset.target = '';
+  }
+});
+sessionForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const targetId = sessionModal.dataset.target;
+  if (targetId) {
+    const row = document.getElementById(targetId);
+    if (row) {
+      const endInput = row.querySelector('.end');
+      const useEnd = useEndTimeCheckbox.checked;
+      row.dataset.useEndTime = useEnd ? 'true' : 'false';
+      if (endInput) {
+        endInput.required = useEnd;
+        endInput.disabled = !useEnd;
+      }
+    }
+  }
+  sessionModal.classList.add('hidden');
+  sessionModal.dataset.target = '';
+});
+
 langSelect.addEventListener('change', () => {
   applyTranslations(langSelect.value);
 });
@@ -119,6 +159,14 @@ bacUnitSelect.addEventListener('change', () => {
 function toInputValue(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function openSessionModal(row) {
+  sessionModal.dataset.target = row.id || '';
+  const useEnd = row.dataset.useEndTime !== 'false';
+  useEndTimeCheckbox.checked = useEnd;
+  sessionModal.classList.remove('hidden');
+  useEndTimeCheckbox.focus();
 }
 
 function mealLabel(key) {
@@ -139,17 +187,20 @@ function getParams() {
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
   const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
+  const absorptionEnabled = document.getElementById('absorption-enabled').checked;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
-    const end = new Date(row.querySelector('.end').value);
+    const endInput = row.querySelector('.end');
+    const useEndTime = row.dataset.useEndTime !== 'false';
+    const end = endInput && endInput.value ? new Date(endInput.value) : null;
     const ml = parseFloat(row.querySelector('.grams').value);
     const grams = mlToGrams(ml);
     const select = row.querySelector('.abs-profile');
     const absProfile = select ? select.value : 'empty';
     const absFactor = (MEAL_PROFILES[absProfile] && MEAL_PROFILES[absProfile].factor) || 1;
-    return { start, end, grams, ml, absProfile, absFactor };
-  }).filter((s) => !Number.isNaN(s.start.getTime()) && !Number.isNaN(s.end.getTime()) && s.grams > 0.0 && s.end > s.start);
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate };
+    return { start, end, grams, ml, absProfile, absFactor, useEndTime };
+  }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled };
 }
 
 function render(result) {
@@ -611,6 +662,7 @@ function applyTranslations(lang) {
   setText('abs-rate-note', t.absRateNote);
   setText('abs-max-label', t.absMaxLabel);
   setText('abs-max-note', t.absMaxNote);
+  setText('absorption-enabled-label', t.absorptionEnabledLabel || t.absRateLabel);
   const totalEl = document.getElementById('calc-total');
   if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);
@@ -630,6 +682,9 @@ function applyTranslations(lang) {
   setText('params-title', t.paramsTitle);
   setText('time-step-label', t.timeStep);
   setText('params-apply', t.paramsApply);
+  setText('session-title', t.sessionTitle || t.paramsTitle);
+  setText('session-apply', t.sessionApply || t.paramsApply);
+  setText('use-end-time-label', t.useEndTimeLabel || 'Use end time');
   // Sex option labels
   const sexSelect = document.getElementById('sex');
   if (sexSelect && sexSelect.options.length >= 2) {
