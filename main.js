@@ -155,6 +155,12 @@ bacUnitSelect.addEventListener('change', () => {
   const result = lastResult || runSim(getParams());
   render(result);
 });
+const absorptionCheckbox = document.getElementById('absorption-enabled');
+if (absorptionCheckbox) {
+  absorptionCheckbox.addEventListener('change', () => {
+    toggleMealSelects(absorptionCheckbox.checked);
+  });
+}
 
 function toInputValue(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -178,6 +184,12 @@ function mealLabel(key) {
     heavy: t.mealHeavy,
   };
   return map[key] || key;
+}
+
+function toggleMealSelects(enabled) {
+  document.querySelectorAll('.abs-profile').forEach((el) => {
+    el.disabled = !enabled;
+  });
 }
 
 function getParams() {
@@ -706,6 +718,7 @@ function applyTranslations(lang) {
     const label = el.closest('div')?.querySelector('[data-i18n="absProfileLabel"]');
     if (label) label.textContent = t.absProfileLabel;
   });
+  toggleMealSelects(document.getElementById('absorption-enabled')?.checked !== false);
   // Update existing drink rows' option texts
   document.querySelectorAll('.drink-row .drink-type option').forEach((opt) => {
     const value = opt.value;
