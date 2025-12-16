@@ -96,12 +96,15 @@ function testAbsorption(weights, doses, doseGrams, doseStart) {
         // Adjust theoretical with approximate concurrent elimination (half-hour equivalent)
         const theoWithElim = Math.max(0, theo - elim * durationH/2);
 
-        console.log(`Absorption test: ${n} doses, ${grams}g, ${r}, ${w}kg, theoretical: ${theo}, elimination: ${elim}, adjusted: ${theoWithElim}, at(0): ${at0}, peak: ${peak}`);
+        // console.log(`Absorption test: ${n} doses, ${grams}g, ${r}, ${w}kg, theoretical: ${theo}, elimination: ${elim}, adjusted: ${theoWithElim}, at(0): ${at0}, peak: ${peak}`);
 
         assert.ok(peak >= 0, `Sanity check: Peak not negative (${sex}, ${w}kg, ${n} doses)`);
 
         // In the beginning, absorption should be far below theoretical well-mixed value (with some elimination).
-        // assert.ok(at0 < theoWithElim * 0.7, "Initial BAC should be far below theoretical max after absorption (${sex}, ${w}kg, ${n} doses)");
+        // If dose is very small, elimination may reduce BAC to zero immediately.
+        const diff = Math.abs(peak/theoWithElim - 1);
+        assert.ok((peak == 0 && theoWithElim < 0.2) || diff < 0.3, // 30% tolerance
+          `Peak should be roughly similar to theoretical value by Widmark (${sex}, ${w}kg, ${n} doses): ${diff}` );
 
         // Peak should be below theoretical well-mixed value (with some elimination) and above zero.
         // approx(peak, theoWithElim, 0.2, "Peak should be near theoretical max after absorption");
