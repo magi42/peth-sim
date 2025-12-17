@@ -93,7 +93,7 @@ const translations = {
   fi: {
     title: 'Alkoholi- ja PEth-laskuri',
     lead: 'Arvioi veren alkoholipitoisuuden, PEth-muodostuksen ja hajoamisen.',
-    warning: 'Huom! Malli on kokeellinen, oikeellisuutta ei ole varmistettu tieteellisesti, ei hoitokäyttöön.',
+    warning: 'Huom! Malli on kokeellinen, oikeellisuutta ei ole varmistettu.',
     langLabel: 'Kieli',
     personTitle: 'Henkilö',
     sex: 'Sukupuoli',

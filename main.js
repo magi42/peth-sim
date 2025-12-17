@@ -637,7 +637,7 @@ function enableHover(canvas, points, options, desiredWidth) {
     const rect = canvas.getBoundingClientRect();
     const xPos = evt.clientX - rect.left;
     const w = rect.width || canvas.clientWidth || canvas.width;
-    const padding = { l: 45, r: 14, t: 12, b: 28 };
+    const padding = { l: 55, r: 14, t: 12, b: 40 };
     const minT = Math.min(...points.map((p) => p.x.getTime()));
     const maxT = Math.max(...points.map((p) => p.x.getTime()));
     const ratio = Math.max(0, Math.min(1, (xPos - padding.l) / (w - padding.l - padding.r)));
