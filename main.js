@@ -200,6 +200,7 @@ function getParams() {
   const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
   const absorptionEnabled = document.getElementById('absorption-enabled').checked;
+  const useBloodWater = document.getElementById('use-blood-water').checked;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
     const endInput = row.querySelector('.end');
@@ -212,7 +213,7 @@ function getParams() {
     const absFactor = (MEAL_PROFILES[absProfile] && MEAL_PROFILES[absProfile].factor) || 1;
     return { start, end, grams, ml, absProfile, absFactor, useEndTime };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled, useBloodWater };
 }
 
 function render(result) {
@@ -676,6 +677,7 @@ function applyTranslations(lang) {
   setText('abs-max-label', t.absMaxLabel);
   setText('abs-max-note', t.absMaxNote);
   setText('absorption-enabled-label', t.absorptionEnabledLabel || t.absRateLabel);
+  setText('use-blood-water-label', t.useBloodWaterLabel || 'Apply blood-water factor');
   const totalEl = document.getElementById('calc-total');
   if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);

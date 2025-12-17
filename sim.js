@@ -1,9 +1,9 @@
 const PETH_MW_G_PER_MOL = 704.6; // Molecular weight of PEth 16:0/18:1
-const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood for Widmark volume
+const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood; applied to Widmark volume if enabled
 const BASE_ABS_K_PER_H = 2.0; // Empty stomach first-order absorption rate (~t1/2 0.35 h)
 const BASE_ABS_CAP_G_PER_H = 80; // Upper cap for absorption on empty stomach
 
-function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = BASE_ABS_K_PER_H, absMax = BASE_ABS_CAP_G_PER_H, absorptionEnabled = true }) {
+function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMinutes = 5, formationRateNgPerMlPerHourAt1Permille = 11.3, absRate = BASE_ABS_K_PER_H, absMax = BASE_ABS_CAP_G_PER_H, absorptionEnabled = true, useBloodWater = true }) {
   if (!sessions || !sessions.length) return null;
   const sorted = sessions.slice().sort((a, b) => a.start - b.start);
   const startTime = sorted[0].start;
@@ -17,7 +17,7 @@ function simulate({ sex, weight, age, sessions, decayHalfLifeDays = 4.5, stepMin
   const r = sex === 'male' ? 0.68 : 0.55; // Widmark distribution factor
   const ageFactor = Math.min(1.25, Math.max(0.85, 1 + (age - 40) * 0.003));
   const elimPermillePerHour = 0.15 * ageFactor; // 0.015 g/dL -> 0.15‰
-  const distribVolumeKg = r * weight * BLOOD_WATER_FACTOR;
+  const distribVolumeKg = r * weight * (useBloodWater ? BLOOD_WATER_FACTOR : 1);
   const elimGramsPerHour = elimPermillePerHour * distribVolumeKg;
   const effectiveAbsRateK = absRate; // per hour
   const effectiveAbsCap = absMax;
