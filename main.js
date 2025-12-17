@@ -48,9 +48,12 @@ function createSessionRow(session) {
       <label data-i18n="start">Start</label>
       <input type="datetime-local" class="start" value="${session.start}" required />
     </div>
-    <div>
+    <div class="session-end-row">
       <label data-i18n="end">End</label>
-      <input type="datetime-local" class="end" value="${session.end || ''}" ${useEndTime ? '' : 'disabled'} ${useEndTime ? 'required' : ''} />
+      <div class="session-end-wrapper">
+        <input type="datetime-local" class="end" value="${session.end || ''}" ${useEndTime ? '' : 'disabled'} ${useEndTime ? 'required' : ''} />
+        <div class="session-duration"></div>
+      </div>
     </div>
     <div style="min-width:120px;">
       <label data-i18n="ethanolLabel">${translations[currentLang].ethanolLabel}</label>
@@ -74,13 +77,19 @@ function createSessionRow(session) {
         <button type="button" class="remove-session" aria-label="Remove session">✕</button>
       </div>
     </div>
+    <div class="session-duration"></div>
   `;
   const removeBtn = wrapper.querySelector('.remove-session');
   if (removeBtn) removeBtn.addEventListener('click', () => wrapper.remove());
   wrapper.querySelector('.calc-grams').addEventListener('click', () => openCalcModal(wrapper.querySelector('.grams')));
   const optsBtn = wrapper.querySelector('.session-options-btn');
   if (optsBtn) optsBtn.addEventListener('click', () => openSessionModal(wrapper));
+  const startInput = wrapper.querySelector('.start');
+  const endInput = wrapper.querySelector('.end');
+  if (startInput) startInput.addEventListener('change', updateDurations);
+  if (endInput) endInput.addEventListener('change', updateDurations);
   sessionsEl.appendChild(wrapper);
+  updateDurations();
 }
 
 defaultSessions.forEach(createSessionRow);
@@ -198,6 +207,31 @@ function mealLabel(key) {
 function toggleMealSelects(enabled) {
   document.querySelectorAll('.abs-profile').forEach((el) => {
     el.disabled = !enabled;
+  });
+}
+
+function updateDurations() {
+  const t = translations[currentLang] || translations.en;
+  document.querySelectorAll('.session-row').forEach((row) => {
+    const startVal = row.querySelector('.start')?.value;
+    const endVal = row.querySelector('.end')?.value;
+    const label = row.querySelector('.session-duration');
+    if (!label) {
+      return;
+    }
+    if (!startVal || !endVal) {
+      label.textContent = '';
+      return;
+    }
+    const start = new Date(startVal);
+    const end = new Date(endVal);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      label.textContent = '';
+      return;
+    }
+    const mins = (end - start) / 60000;
+    const hours = mins / 60;
+    label.textContent = `${hours.toFixed(1)} h`;
   });
 }
 

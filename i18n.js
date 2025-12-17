@@ -28,6 +28,7 @@ const translations = {
     windowLabel: 'Time window',
     window3d: 'First 3 days (scrollable)',
     windowPeth: 'Until PEth < 0.05 µmol/L',
+    durationLabel: 'Duration: ',
     modalTitle: 'Ethanol calculator',
     modalApply: 'Apply to session',
     modalNote: 'Calculator converts selected drinks to pure ethanol (mL); simulation converts to grams with density 0.789 g/mL.',

@@ -261,6 +261,24 @@ form input:focus, form select:focus {
   gap: 8px;
   align-items: flex-end;
   margin-bottom: 8px;
+  position: relative;
+}
+.session-end-row {
+  position: relative;
+  width: 100%;
+}
+.session-end-wrapper input{
+  width: auto
+}
+.session-duration {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  width: 100%;
+  text-align: right;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
 }
 .meal-row {
   display: flex;
