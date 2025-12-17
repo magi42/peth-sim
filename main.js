@@ -22,6 +22,7 @@ let activeGramsInput = null;
 let currentLang = detectLang();
 let lastResult = null;
 let sessionIdCounter = 0;
+let windowMode = (document.querySelector('input[name="window-mode"]:checked')?.value) || '3d';
 
 const defaultSessions = [
   { start: '2025-01-01T17:00', end: '2025-01-01T21:00', ml: 10*1*70*0.38, useEndTime: true }, // One 70 cL of 38% Kossu
@@ -155,6 +156,14 @@ bacUnitSelect.addEventListener('change', () => {
   const result = lastResult || runSim(getParams());
   render(result);
 });
+const windowRadios = document.querySelectorAll('input[name="window-mode"]');
+windowRadios.forEach((radio) => {
+  radio.addEventListener('change', (e) => {
+    windowMode = e.target.value;
+    const result = lastResult || runSim(getParams());
+    render(result);
+  });
+});
 const absorptionCheckbox = document.getElementById('absorption-enabled');
 if (absorptionCheckbox) {
   absorptionCheckbox.addEventListener('change', () => {
@@ -238,14 +247,74 @@ function render(result) {
   const bacPoints = timeline.map((t) => ({ x: t.time, y: convertBac(t.bac, unit) }));
   const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
 
-  const bacOptions = { color: '#1c7ed6', yLabel: unitLabel(unit), warning: convertBac(0.5, unit), valueFormatter: (v) => formatBac(v, unit), axisLabel: t.axisTime, axisTick: 1.0};
+  // Calculate time range of the simulation until PEth drops below 0.05 µmol/L
+  const times = timeline.map((p) => p.time.getTime());
+  const minT = Math.min(...times);
+  const maxT = Math.max(...times);
+  const totalMs = Math.max(1, maxT - minT);
+
+  // How much of that time to show based on window mode
+  const visibleMs = windowMode === '3d' ? Math.min(totalMs, 72 * 60 * 60 * 1000) : totalMs;
+
+  // If the visible range is smaller than total, we need to scale up the width
+  const widthFactor = Math.max(1, Math.min(10, totalMs / visibleMs));
+
+  // Keep the fraction of scroll position when re-rendering
+  const bacScroll = document.getElementById('bac-scroll');
+  const pethScroll = document.getElementById('peth-scroll');
+  const baseWidth = (wrap) => (wrap?.clientWidth || wrap?.getBoundingClientRect?.().width || 600);
+  const keepFrac = (bacScroll && bacScroll.scrollWidth > bacScroll.clientWidth) ?
+                   bacScroll.scrollLeft / (bacScroll.scrollWidth - bacScroll.clientWidth) : 0;
+
+  // The wrapper widths need to be adjusted as fixed to allow scrolling
+  const wrapperWidth = baseWidth(bacScroll) || 600;
+  document.getElementById('bac-scroll').style.width = `${wrapperWidth}px`;
+  document.getElementById('peth-scroll').style.width = `${wrapperWidth}px`;
+
+  const bacOptions = { color: '#1c7ed6', yLabel: unitLabel(unit), warning: convertBac(0.5, unit), valueFormatter: (v) => formatBac(v, unit), axisLabel: t.axisTime, axisTick: 1.0, showHours: windowMode === '3d' };
   const pethOptions = { color: '#f59f00', yLabel: 'µmol/L', warning: .3, valueFormatter: (v) => `${v.toFixed(4)} µmol/L`, axisLabel: t.axisTime, axisTick: 0.1 };
 
-  drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions);
-  drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions);
+  const bacDesired = wrapperWidth * widthFactor;
+  const pethDesired = wrapperWidth * widthFactor;
+  drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions, null, bacDesired);
+  drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions, null, pethDesired);
 
-  enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions);
-  enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions);
+  enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions, bacDesired);
+  enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions, pethDesired);
+
+  const setScrollFrac = (wrap, frac) => {
+    if (!wrap)
+      return;
+    const max = wrap.scrollWidth - wrap.clientWidth;
+    if (max > 0)
+      wrap.scrollLeft = frac * max;
+    else
+      wrap.scrollLeft = 0;
+  };
+  setScrollFrac(bacScroll, keepFrac);
+  setScrollFrac(pethScroll, keepFrac);
+
+  // sync scrollbars
+  let syncing = false;
+  const sync = (source, target) => {
+    if (!source || !target) return;
+    const maxS = source.scrollWidth - source.clientWidth;
+    const frac = maxS > 0 ? source.scrollLeft / maxS : 0;
+    const maxT = target.scrollWidth - target.clientWidth;
+    syncing = true;
+    target.scrollLeft = frac * maxT;
+    syncing = false;
+  };
+  [bacScroll, pethScroll].forEach((el) => {
+    if (el && !el._syncAttached) {
+      el.addEventListener('scroll', () => {
+        if (syncing) return;
+        if (el === bacScroll) sync(bacScroll, pethScroll);
+        else sync(pethScroll, bacScroll);
+      });
+      el._syncAttached = true;
+    }
+  });
 
   const note = t.modelNote({
     r: result.params.r.toFixed(2),
@@ -257,8 +326,8 @@ function render(result) {
   document.getElementById('model-note').textContent = note;
 }
 
-function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick }, highlight) {
-  const { ctx, w, h } = ensureCanvasSize(canvas);
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick, showHours }, highlight, desiredWidth) {
+  const { ctx, w, h } = ensureCanvasSize(canvas, desiredWidth);
   ctx.save();
   ctx.clearRect(0, 0, w, h);
   if (!points.length) {
@@ -285,6 +354,14 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   for (let t = firstMidnight.getTime(); t <= maxT; t += 24 * 60 * 60 * 1000) {
     midnightTicks.push(t);
   }
+  // Hour ticks for short window
+  const hourTicks = [];
+  if (highlight?.showHours || showHours) {
+    const firstHour = Math.ceil(minT / (60 * 60 * 1000)) * 60 * 60 * 1000;
+    for (let t = firstHour; t <= maxT; t += 60 * 60 * 1000) {
+      hourTicks.push(t);
+    }
+  }
 
   // Horizontal grid lines
   ctx.strokeStyle = '#e6ecf4';
@@ -293,7 +370,6 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   const baseLines = 5;
   const tickStep = axisTick || (maxY / (baseLines || 1));
   const gridLines = Math.max(baseLines, Math.ceil(maxY / (tickStep || 1)));
-  console.log("Foo", tickStep, gridLines);
   ctx.fillStyle = '#6c7585';
   ctx.font = '12px var(--sans)';
   for (let i = 0; i <= gridLines; i++) {
@@ -312,10 +388,22 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
 
   // Vertical midnight ticks
   if (midnightTicks.length) {
-    ctx.strokeStyle = '#eef1f6';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#cdd1d6';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     midnightTicks.forEach((t) => {
+      const x = scaleX(t);
+      ctx.moveTo(x, padding.t);
+      ctx.lineTo(x, h - padding.b);
+    });
+    ctx.stroke();
+  }
+  // Hour ticks
+  if (hourTicks.length) {
+    ctx.strokeStyle = '#f4f6fa';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    hourTicks.forEach((t) => {
       const x = scaleX(t);
       ctx.moveTo(x, padding.t);
       ctx.lineTo(x, h - padding.b);
@@ -504,7 +592,7 @@ function createDrinkRow(type = 'beer', qty = 1) {
   updateCalcTotal();
 }
 
-function enableHover(canvas, points, options) {
+function enableHover(canvas, points, options, desiredWidth) {
   if (!points.length) return;
   if (canvas._hoverCleanup) {
     canvas._hoverCleanup();
@@ -531,9 +619,9 @@ function enableHover(canvas, points, options) {
       point: nearest,
       value: options.valueFormatter ? options.valueFormatter(nearest.y) : nearest.y.toFixed(2),
       time: formatTime(nearest.x),
-    });
+    }, desiredWidth);
   };
-  const leaveHandler = () => drawChart(canvas, points, options);
+  const leaveHandler = () => drawChart(canvas, points, options, null, desiredWidth);
   canvas.addEventListener('mousemove', handler);
   canvas.addEventListener('mouseleave', leaveHandler);
   canvas._hoverCleanup = () => {
@@ -542,8 +630,11 @@ function enableHover(canvas, points, options) {
   };
 }
 
-function ensureCanvasSize(canvas) {
+function ensureCanvasSize(canvas, desiredWidth) {
   const dpr = window.devicePixelRatio || 1;
+  if (desiredWidth) {
+    canvas.style.width = `${desiredWidth}px`;
+  }
   const displayW = canvas.getBoundingClientRect().width || canvas.clientWidth || canvas.width || 600;
   const displayH = canvas.getBoundingClientRect().height || canvas.clientHeight || canvas.height || 260;
   const needResize = canvas.width !== Math.floor(displayW * dpr) || canvas.height !== Math.floor(displayH * dpr);
@@ -656,6 +747,9 @@ function applyTranslations(lang) {
   setText('peak-peth-label', t.statPeakPEth);
   setText('bac-chart-label', t.chartBAC);
   setText('peth-chart-label', t.chartPEth);
+  setText('window-label', t.windowLabel || 'Time window');
+  setText('window-3d-label', t.window3d || 'First 3 days (scrollable)');
+  setText('window-peth-label', t.windowPeth || 'Until PEth < 0.05 µmol/L');
   setText('calc-title', t.modalTitle);
   setText('calc-apply', t.modalApply);
   setText('calc-note', t.modalNote);

@@ -89,12 +89,21 @@
       <div class="grid">
         <div>
           <h3 class="section-title" id="bac-chart-label">Blood alcohol (‰)</h3>
-          <canvas id="bac-chart" width="600" height="260"></canvas>
+          <div class="chart-scroll" id="bac-scroll">
+            <canvas id="bac-chart" width="600" height="260"></canvas>
+          </div>
         </div>
         <div>
           <h3 class="section-title" id="peth-chart-label">PEth (µmol/L)</h3>
-          <canvas id="peth-chart" width="600" height="260"></canvas>
+          <div class="chart-scroll" id="peth-scroll">
+            <canvas id="peth-chart" width="600" height="260"></canvas>
+          </div>
         </div>
+      </div>
+      <div class="window-controls">
+        <span id="window-label">Time window</span>
+        <label><input type="radio" name="window-mode" id="window-3d" value="3d" /> <span id="window-3d-label">First 3 days (scrollable)</span></label>
+        <label><input type="radio" name="window-mode" id="window-peth" value="peth" checked /> <span id="window-peth-label">Until PEth < 0.05 µmol/L</span></label>
       </div>
       <div class="note" id="model-note"></div>
     </section>

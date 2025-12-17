@@ -41,6 +41,30 @@ p.lead {
   color: #c92a2a;
   font-weight: 700;
 }
+.window-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 10px 0 4px;
+  font-size: 14px;
+}
+.window-controls label {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  font-weight: 500;
+}
+.chart-scroll {
+  overflow-x: auto;
+  border: 1px solid #e5e9f0;
+  border-radius: 6px;
+  width: 100%;
+}
+.chart-scroll canvas {
+  display: block;
+  min-width: 100%;
+}
 .lang-wrap {
   display: inline-flex;
   align-items: center;
