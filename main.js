@@ -354,6 +354,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   for (let t = firstMidnight.getTime(); t <= maxT; t += 24 * 60 * 60 * 1000) {
     midnightTicks.push(t);
   }
+
   // Hour ticks for short window
   const hourTicks = [];
   if (highlight?.showHours || showHours) {
@@ -398,6 +399,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     });
     ctx.stroke();
   }
+
   // Hour ticks
   if (hourTicks.length) {
     ctx.strokeStyle = '#f4f6fa';
@@ -458,7 +460,7 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     ctx.font = '11px var(--sans)';
     midnightTicks.forEach((t) => {
       const d = new Date(t);
-      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+      const label = `${d.getDate()}.${d.getMonth() + 1}.`;
       ctx.fillText(label, scaleX(t), h - padding.b + 15);
     });
   }
@@ -649,7 +651,7 @@ function ensureCanvasSize(canvas, desiredWidth) {
 
 function formatTime(date) {
   const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getMonth() + 1}/${date.getDate()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${date.getDate()}.${date.getMonth() + 1}. ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
 function mlToGrams(ml, abv = 100) {
