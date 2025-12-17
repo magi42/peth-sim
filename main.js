@@ -663,8 +663,7 @@ function formatMl(ml) {
   return `${ml.toFixed(1)} mL`;
 }
 
-function formatDoses(totalMl, label) {
-  const doses = totalMl / 16;
+function formatDoses(doses, label) {
   return `${doses.toFixed(1)} ${label}`;
 }
 
@@ -692,8 +691,13 @@ function calcPureMl() {
   }, 0);
 }
 
+function calculateGramsFromMl(pureMl) {
+  return pureMl * 0.789;
+}
+
 function updateCalcTotal() {
   const total = calcPureMl();
+  const totalDoses = calculateGramsFromMl(total);
   const label = (translations[currentLang] || translations.en).calcTotal || 'Total';
   const dosesLabel = (translations[currentLang] || translations.en).calcDoses || 'doses';
   const rows = Array.from(drinkList.querySelectorAll('.drink-row'));
@@ -703,13 +707,22 @@ function updateCalcTotal() {
     const count = parseFloat(row.querySelector('.drink-count')?.value) || 0;
     const volCl = parseFloat(row.querySelector('.drink-vol')?.value) || preset.volCl;
     const abv = parseFloat(row.querySelector('.drink-abv')?.value) || preset.abv;
+
+    // Update doses display
     const pureMl = count * volCl * 10 * (abv / 100);
-    const doses = pureMl / 16;
+    const doses = calculateGramsFromMl(pureMl)/12;
     const doseEl = row.querySelector('.drink-doses');
-    if (doseEl) doseEl.textContent = `${doses.toFixed(1)} ${dosesLabel}`;
+    if (doseEl)
+      doseEl.textContent = `${doses.toFixed(1)} ${dosesLabel}`;
   });
+
+  // Display total
   const el = document.getElementById('calc-total');
-  if (el) el.textContent = `${label}: ${formatMl(total)} (${formatDoses(total, dosesLabel)})`;
+  if (el) {
+    const totalGrams = calculateGramsFromMl(total);
+    const dosesCount = totalGrams / 12;
+    el.textContent = `${label}: ${formatMl(total)} (${totalGrams.toFixed(1)} g, ${formatDoses(dosesCount, dosesLabel)})`;
+  }
 }
 
 function applyTranslations(lang) {
@@ -775,7 +788,7 @@ function applyTranslations(lang) {
   setText('absorption-enabled-label', t.absorptionEnabledLabel || t.absRateLabel);
   setText('use-blood-water-label', t.useBloodWaterLabel || 'Apply blood-water factor');
   const totalEl = document.getElementById('calc-total');
-  if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl(), t.calcDoses || 'doses')})`;
+  if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl() * 0.768 / 12, t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);
   setOptionText('opt-beer05', t.calcOptBeer05);
   setOptionText('opt-beerStrong', t.calcOptBeerStrong);
