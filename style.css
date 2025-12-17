@@ -36,6 +36,11 @@ p.lead {
   margin: 0 0;
   color: var(--muted);
 }
+.warning {
+  margin: 6px 0 0;
+  color: #c92a2a;
+  font-weight: 700;
+}
 .lang-wrap {
   display: inline-flex;
   align-items: center;

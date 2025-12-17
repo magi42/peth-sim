@@ -2,7 +2,8 @@
 const translations = {
   en: {
     title: 'BAC & PEth Simulator',
-    lead: 'Estimate blood alcohol curves, PEth formation, and decay using a simplified pharmacokinetic model.',
+    lead: 'Estimates blood alcohol curves, PEth formation, and decay.',
+    warning: 'Note! The model is experimental and not scientifically validated; not for clinical use.',
     langLabel: 'Language',
     personTitle: 'Person',
     sex: 'Sex',
@@ -86,7 +87,8 @@ const translations = {
   },
   fi: {
     title: 'Alkoholi- ja PEth-laskuri',
-    lead: 'Arvioi veren alkoholipitoisuuden, PEth-muodostuksen ja hajoamisen yksinkertaistetulla mallilla.',
+    lead: 'Arvioi veren alkoholipitoisuuden, PEth-muodostuksen ja hajoamisen.',
+    warning: 'Huom! Malli on kokeellinen, oikeellisuutta ei ole varmistettu tieteellisesti, ei hoitokäyttöön.',
     langLabel: 'Kieli',
     personTitle: 'Henkilö',
     sex: 'Sukupuoli',
@@ -130,7 +132,7 @@ const translations = {
     calcOptWineCan200: 'Viinitölkki 2 L (12%)',
     calcOptWineCan300: 'Viinitölkki 3 L (12%)',
     formationRateLabel: 'PEth-synteesi @ 1‰ (ng/mL/h)',
-    formationRateNote: 'Johdettu arvosta 0.016 μmol/L/h 1‰:ssa ≈ 11.3 ng/mL/h (PEth 16:0/18:1).',
+    formationRateNote: 'Johdettu arvosta 0.016 μmol/L/h 1‰:ssa ≈ 11.3 ng/mL/h (PEth 16:0/18:1). Malli lineaarinen suhteessa BAC:iin, aliarvioi hieman alle 1‰ pitoisuuksissa, yliarvioi korkeammissa.',
     halfNote: 'Kirjallisuudessa tyypillisesti ~3–6 päivää; vaihteluväli ~2–12 päivää.',
     absRateLabel: 'Imeytymisnopeus (g/h)',
     absRateNote: 'Lineaarinen mahan → veren nopeus (nopea, tyhjä maha). Laske arvoa jos syöty.',

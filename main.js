@@ -637,6 +637,7 @@ function applyTranslations(lang) {
   };
   setText('title', t.title);
   setText('lead', t.lead);
+  setText('warning', t.warning || '');
   setText('lang-label', t.langLabel);
   setText('bac-unit-label', t.bacUnit);
   setText('person-title', t.personTitle);
