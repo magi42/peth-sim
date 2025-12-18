@@ -80,14 +80,20 @@ function createSessionRow(session) {
     <div class="session-duration"></div>
   `;
   const removeBtn = wrapper.querySelector('.remove-session');
-  if (removeBtn) removeBtn.addEventListener('click', () => wrapper.remove());
+  if (removeBtn)
+    removeBtn.addEventListener('click', () => wrapper.remove());
   wrapper.querySelector('.calc-grams').addEventListener('click', () => openCalcModal(wrapper.querySelector('.grams')));
   const optsBtn = wrapper.querySelector('.session-options-btn');
-  if (optsBtn) optsBtn.addEventListener('click', () => openSessionModal(wrapper));
+  if (optsBtn)
+    optsBtn.addEventListener('click', () => openSessionModal(wrapper));
+
   const startInput = wrapper.querySelector('.start');
   const endInput = wrapper.querySelector('.end');
-  if (startInput) startInput.addEventListener('change', updateDurations);
-  if (endInput) endInput.addEventListener('change', updateDurations);
+  if (startInput)
+    startInput.addEventListener('change', updateDurations);
+  if (endInput)
+    endInput.addEventListener('change', updateDurations);
+
   sessionsEl.appendChild(wrapper);
   updateDurations();
 }
@@ -152,6 +158,7 @@ sessionForm.addEventListener('submit', (e) => {
         endInput.required = useEnd;
         endInput.disabled = !useEnd;
       }
+      updateDurations();
     }
   }
   sessionModal.classList.add('hidden');
@@ -225,8 +232,9 @@ function updateDurations() {
     }
     const start = new Date(startVal);
     const end = new Date(endVal);
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
-      label.textContent = '';
+    const useEnd = row.dataset.useEndTime !== 'false';
+    if (!useEnd || Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) {
+      label.textContent = useEnd ? '' : '0.0 h';
       return;
     }
     const mins = (end - start) / 60000;
