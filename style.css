@@ -481,6 +481,33 @@ form input:focus, form select:focus {
   margin-top: 4px;
   margin-bottom: 8px;
 }
+.meal-params {
+  margin-top: 10px;
+  margin-bottom: 12px;
+}
+.meal-params .section-title {
+  margin-top: 12px;
+}
+.param-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.param-table th,
+.param-table td {
+  border: 1px solid #dfe7f5;
+  padding: 6px 8px;
+  text-align: left;
+}
+.param-table th {
+  background: #f5f7fb;
+  color: #4a5667;
+  font-weight: 700;
+}
+.param-table input {
+  max-width: 140px;
+}
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

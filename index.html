@@ -180,6 +180,36 @@
           <input type="checkbox" id="absorption-enabled" checked />
           <label for="absorption-enabled" id="absorption-enabled-label">Use absorption model (stomach → blood)</label>
         </div>
+        <div class="meal-params">
+          <div class="section-title" id="meal-params-title">Meal effects</div>
+          <div class="input-note" id="meal-params-note">Absorption multiplier by meal size; smaller value slows absorption and lowers peak BAC.</div>
+          <table class="param-table" aria-labelledby="meal-params-title">
+            <thead>
+              <tr>
+                <th id="meal-param-meal-header">Meal</th>
+                <th id="meal-param-factor-header">Absorption multiplier</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td id="meal-param-empty-label">Empty stomach</td>
+                <td><input id="meal-factor-empty" class="meal-factor" data-profile="empty" type="number" min="0.05" max="2" step="0.05" value="1.00" /></td>
+              </tr>
+              <tr>
+                <td id="meal-param-light-label">Light snack</td>
+                <td><input id="meal-factor-light" class="meal-factor" data-profile="light" type="number" min="0.05" max="2" step="0.05" value="0.80" /></td>
+              </tr>
+              <tr>
+                <td id="meal-param-mixed-label">Mixed meal</td>
+                <td><input id="meal-factor-mixed" class="meal-factor" data-profile="mixed" type="number" min="0.05" max="2" step="0.05" value="0.60" /></td>
+              </tr>
+              <tr>
+                <td id="meal-param-heavy-label">Heavy meal</td>
+                <td><input id="meal-factor-heavy" class="meal-factor" data-profile="heavy" type="number" min="0.05" max="2" step="0.05" value="0.45" /></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
         <div class="checkbox-row">
           <input type="checkbox" id="use-blood-water" checked />
           <label for="use-blood-water" id="use-blood-water-label">Apply blood-water density factor (1.055) to Widmark volume</label>

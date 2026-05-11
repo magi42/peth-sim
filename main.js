@@ -30,12 +30,17 @@ const defaultSessions = [
   { start: '2025-01-02T10:00', end: '2025-01-02T14:00', ml: 10*3*50*0.08, useEndTime: true }  // Three big cans of 8% beers for hangover
 ];
 
-const MEAL_PROFILES = {
+const DEFAULT_MEAL_PROFILES = {
   empty: { factor: 1.0, labelKey: 'mealEmpty' },
   light: { factor: 0.8, labelKey: 'mealLight' },
   mixed: { factor: 0.6, labelKey: 'mealMixed' },
   heavy: { factor: 0.45, labelKey: 'mealHeavy' },
 };
+let mealProfiles = cloneMealProfiles(DEFAULT_MEAL_PROFILES);
+
+function cloneMealProfiles(profiles) {
+  return Object.fromEntries(Object.entries(profiles).map(([key, value]) => [key, { ...value }]));
+}
 
 function createSessionRow(session) {
   const absProfile = session.absProfile || 'empty';
@@ -146,6 +151,7 @@ paramsReset.addEventListener('click', () => {
   const femaleR = document.getElementById('female-r');
   if (maleR) maleR.value = 0.68;
   if (femaleR) femaleR.value = 0.55;
+  resetMealProfileSettings();
   applyTranslations(currentLang);
 });
 
@@ -216,17 +222,15 @@ function openSessionModal(row) {
 
 function mealLabel(key) {
   const t = translations[currentLang] || translations.en;
-  const map = {
-    empty: t.mealEmpty,
-    light: t.mealLight,
-    mixed: t.mealMixed,
-    heavy: t.mealHeavy,
-  };
-  return map[key] || key;
+  const profile = DEFAULT_MEAL_PROFILES[key] || mealProfiles[key];
+  return profile && profile.labelKey ? t[profile.labelKey] : key;
 }
 
 function toggleMealSelects(enabled) {
   document.querySelectorAll('.abs-profile').forEach((el) => {
+    el.disabled = !enabled;
+  });
+  document.querySelectorAll('.meal-factor').forEach((el) => {
     el.disabled = !enabled;
   });
 }
@@ -258,6 +262,7 @@ function updateDurations() {
 }
 
 function getParams() {
+  mealProfiles = getMealProfileSettings();
   const sex = document.getElementById('sex').value;
   const weight = parseFloat(document.getElementById('weight').value);
   const age = parseInt(document.getElementById('age').value, 10);
@@ -277,10 +282,31 @@ function getParams() {
     const grams = mlToGrams(ml);
     const select = row.querySelector('.abs-profile');
     const absProfile = select ? select.value : 'empty';
-    const absFactor = (MEAL_PROFILES[absProfile] && MEAL_PROFILES[absProfile].factor) || 1;
+    const absFactor = (mealProfiles[absProfile] && mealProfiles[absProfile].factor) || 1;
     return { start, end, grams, ml, absProfile, absFactor, useEndTime };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
   return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled, useBloodWater, maleR, femaleR };
+}
+
+function getMealProfileSettings() {
+  const profiles = cloneMealProfiles(DEFAULT_MEAL_PROFILES);
+  document.querySelectorAll('.meal-factor').forEach((input) => {
+    const key = input.dataset.profile;
+    if (!profiles[key]) return;
+    const value = parseFloat(input.value);
+    if (Number.isFinite(value) && value > 0) {
+      profiles[key].factor = value;
+    }
+  });
+  return profiles;
+}
+
+function resetMealProfileSettings() {
+  mealProfiles = cloneMealProfiles(DEFAULT_MEAL_PROFILES);
+  Object.entries(mealProfiles).forEach(([key, profile]) => {
+    const input = document.querySelector(`.meal-factor[data-profile="${key}"]`);
+    if (input) input.value = profile.factor.toFixed(2);
+  });
 }
 
 function render(result) {
@@ -848,6 +874,14 @@ const setText = (id, text) => {
   setText('abs-max-note', t.absMaxNote);
   setText('absorption-enabled-label', t.absorptionEnabledLabel || t.absRateLabel);
   setText('use-blood-water-label', t.useBloodWaterLabel || 'Apply blood-water factor');
+  setText('meal-params-title', t.mealParamsTitle || 'Meal effects');
+  setText('meal-params-note', t.mealParamsNote || '');
+  setText('meal-param-meal-header', t.mealParamMealHeader || 'Meal');
+  setText('meal-param-factor-header', t.mealParamFactorHeader || 'Absorption multiplier');
+  setText('meal-param-empty-label', t.mealEmpty);
+  setText('meal-param-light-label', t.mealLight);
+  setText('meal-param-mixed-label', t.mealMixed);
+  setText('meal-param-heavy-label', t.mealHeavy);
   const totalEl = document.getElementById('calc-total');
   if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl() * 0.768 / 12, t.calcDoses || 'doses')})`;
   setOptionText('opt-beer', t.calcOptBeer);
