@@ -55,9 +55,23 @@
         <div id="sessions" class="sessions"></div>
         <button type="button" class="btn" id="add-session">+ Add drinking period</button>
 
+        <div class="initial-peth-row">
+          <div class="field">
+            <label for="initial-peth-date" id="initial-peth-date-label">Initial PEth date</label>
+            <input id="initial-peth-date" type="datetime-local" />
+          </div>
+          <div class="field">
+            <label for="initial-peth-level" id="initial-peth-level-label">Initial PEth (µmol/L)</label>
+            <input id="initial-peth-level" type="number" min="0" step="0.001" value="0" />
+          </div>
+        </div>
+
         <div class="btn-row">
           <button type="button" class="btn ghost" id="more-params">Additional parameters</button>
           <button type="submit" class="btn" id="run-btn">Run simulation</button>
+        </div>
+        <div class="secondary-actions">
+          <button type="button" class="small-tool-btn" id="edit-series">Edit as text</button>
         </div>
       </form>
       <div class="note" id="form-note">
@@ -80,6 +94,10 @@
         <div class="stat">
           <h3 id="time-over-label">Time over 0.5‰</h3>
           <div class="value" id="time-over">-</div>
+        </div>
+        <div class="stat">
+          <h3 id="time-clear-label">Alcohol cleared</h3>
+          <div class="value" id="time-clear">-</div>
         </div>
         <div class="stat">
           <h3 id="peak-peth-label">Peak PEth</h3>
@@ -156,13 +174,9 @@
         <input id="time-step" type="number" min="1" max="120" step="1" value="5" />
         <div class="input-note" id="time-step-note">Simulation resolution; smaller step is smoother but slower.</div>
 
-        <label for="formation-rate" id="formation-rate-label">PEth formation @ 1‰ (ng/mL/h)</label>
-        <input id="formation-rate" type="number" min="1" max="50" step="0.1" value="11.3" />
-        <div class="input-note" id="formation-rate-note">Derived from 0.016 μmol/L/h at 1‰ ≈ 11.3 ng/mL/h (PEth 16:0/18:1).</div>
-
-        <label for="peth-half-life" id="half-label">PEth half-life (days)</label>
-        <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" />
-        <div class="input-note" id="half-note">Literature: ~3–6 days typical; reported range ~2–12 days.</div>
+        <label for="elimination-rate" id="elimination-rate-label">Alcohol elimination (‰/h)</label>
+        <input id="elimination-rate" type="number" min="0.05" max="0.30" step="0.01" value="0.15" />
+        <div class="input-note" id="elimination-rate-note">Baseline zero-order elimination before age adjustment.</div>
 
         <div class="param-inline">
           <div class="field">
@@ -176,6 +190,10 @@
         </div>
         <div class="input-note" id="r-note">Widmark distribution factor; defaults ~0.68 men, ~0.55 women.</div>
 
+        <div class="checkbox-row">
+          <input type="checkbox" id="use-blood-water" checked />
+          <label for="use-blood-water" id="use-blood-water-label">Apply blood-water density factor (1.055) to Widmark volume</label>
+        </div>
         <div class="checkbox-row">
           <input type="checkbox" id="absorption-enabled" checked />
           <label for="absorption-enabled" id="absorption-enabled-label">Use absorption model (stomach → blood)</label>
@@ -210,10 +228,14 @@
             </tbody>
           </table>
         </div>
-        <div class="checkbox-row">
-          <input type="checkbox" id="use-blood-water" checked />
-          <label for="use-blood-water" id="use-blood-water-label">Apply blood-water density factor (1.055) to Widmark volume</label>
-        </div>
+
+        <label for="formation-rate" id="formation-rate-label">PEth formation @ 1‰ (ng/mL/h)</label>
+        <input id="formation-rate" type="number" min="1" max="50" step="0.1" value="11.3" />
+        <div class="input-note" id="formation-rate-note">Derived from 0.016 μmol/L/h at 1‰ ≈ 11.3 ng/mL/h (PEth 16:0/18:1).</div>
+
+        <label for="peth-half-life" id="half-label">PEth half-life (days)</label>
+        <input id="peth-half-life" type="number" min="2" max="12" step="0.1" value="4.5" />
+        <div class="input-note" id="half-note">Literature: ~3–6 days typical; reported range ~2–12 days.</div>
 
         <div class="modal-actions">
           <button type="button" class="btn ghost" id="params-reset">Reset to defaults</button>
@@ -237,6 +259,24 @@
         </div>
         <div class="modal-actions">
           <button type="submit" class="btn" id="session-apply">Apply</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Drinking series text editor modal -->
+  <div id="series-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="series-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="series-title">Drinking series as text</h3>
+        <button id="series-close" class="modal-close" aria-label="Close">✕</button>
+      </div>
+      <form id="series-form">
+        <textarea id="series-text" class="series-text" spellcheck="false"></textarea>
+        <div class="input-note" id="series-note">Format: start end amount profile, e.g. 2025-12-20+18:00 2025-12-21+20:00 380mL light.</div>
+        <div class="bad series-error" id="series-error"></div>
+        <div class="modal-actions">
+          <button type="submit" class="btn" id="series-apply">Save</button>
         </div>
       </form>
     </div>

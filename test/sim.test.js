@@ -24,6 +24,9 @@ function runTests() {
   testEmptySessions();
   testSingleSession();
   testExtendingHorizon();
+  testInitialPeth();
+  testSessionOrderIndependence();
+  testOverlappingIncrementalSessions();
 
   // 4) Absorption model sanity across sexes/weights/doses
   const weights = [60, 90];
@@ -33,6 +36,7 @@ function runTests() {
   testAbsorption(weights, doses, doseGrams, doseStart);
   testAbsorptionMonotonicity(weights, doses, doseGrams, doseStart);
   testElimination(doseGrams, doseStart);
+  testCustomEliminationRate(doseGrams, doseStart);
   
   console.log('All tests passed.');
 }
@@ -51,11 +55,11 @@ function testSingleSession() {
     sessions: [{ start: new Date('2024-01-01T20:00:00Z'), end: new Date('2024-01-01T22:00:00Z'), grams: 60 }],
   });
   const peakA = Math.max(...caseA.timeline.map((t) => t.bac));
-  const timeOverA = caseA.timeline.filter((t) => t.bac >= 0.5).length * 5 / 60;
+  const timeOverA = caseA.timeline.filter((t) => t.bac >= 0.5).length * caseA.params.stepMinutes / 60;
   const peakPethA = Math.max(...caseA.timeline.map((t) => toUmol(t.pethNgMl)));
-  approx(peakA, 0.64, 0.03, 'Peak BAC for 60g/2h male 80kg');
-  approx(timeOverA, 2.08, 0.25, 'Hours over 0.5‰ for 60g/2h male 80kg');
-  approx(peakPethA, 0.039, 0.01, 'Peak PEth µmol/L for 60g/2h male 80kg');
+  approx(peakA, 0.61, 0.03, 'Peak BAC for 60g/2h male 80kg');
+  approx(timeOverA, 1.83, 0.25, 'Hours over 0.5‰ for 60g/2h male 80kg');
+  approx(peakPethA, 0.035, 0.01, 'Peak PEth µmol/L for 60g/2h male 80kg');
   assert.ok(caseA.timeline[caseA.timeline.length - 1].bac < 0.005, 'BAC returns near zero by end of horizon');
 }
 
@@ -75,6 +79,42 @@ function testExtendingHorizon() {
   const durationDaysB = (lastB.time - caseB.timeline[0].time) / 86400000;
   assert.ok(endPethB <= 0.05, 'PEth decays below 0.05 µmol/L with extended horizon');
   assert.ok(durationDaysB >= 10, 'Extended horizon runs multiple days to show PEth decay');
+}
+
+function testInitialPeth() {
+  const initialDate = new Date('2024-01-01T08:00:00Z');
+  const drinkStart = new Date('2024-01-02T20:00:00Z');
+  const res = simulate({
+    sex: 'male',
+    weight: 80,
+    age: 35,
+    initialPethDate: initialDate,
+    initialPethUmol: 0.12,
+    sessions: [{ start: drinkStart, end: new Date('2024-01-02T22:00:00Z'), grams: 60 }],
+  });
+  assert.strictEqual(res.startTime.getTime(), initialDate.getTime(), 'Initial PEth date should start simulation when before drinking');
+  approx(toUmol(res.timeline[0].pethNgMl), 0.12, 0.0001, 'Initial PEth should be present at simulation start');
+}
+
+function testSessionOrderIndependence() {
+  const sessions = [
+    { start: new Date('2024-01-02T20:00:00Z'), end: new Date('2024-01-02T22:00:00Z'), grams: 40 },
+    { start: new Date('2024-01-01T20:00:00Z'), end: new Date('2024-01-01T22:00:00Z'), grams: 60 },
+  ];
+  const ordered = simulate({ sex: 'male', weight: 80, age: 35, sessions: sessions.slice().reverse() });
+  const unordered = simulate({ sex: 'male', weight: 80, age: 35, sessions });
+  const peak = (res) => Math.max(...res.timeline.map((t) => t.bac));
+  approx(peak(unordered), peak(ordered), 0.0001, 'Session order should not affect peak BAC');
+  assert.strictEqual(unordered.startTime.getTime(), ordered.startTime.getTime(), 'Session order should not affect simulation start');
+}
+
+function testOverlappingIncrementalSessions() {
+  const first = { start: new Date('2024-01-01T20:00:00Z'), end: new Date('2024-01-01T22:00:00Z'), grams: 30 };
+  const overlapping = { start: new Date('2024-01-01T21:00:00Z'), end: new Date('2024-01-01T23:00:00Z'), grams: 30 };
+  const separate = simulate({ sex: 'male', weight: 80, age: 35, sessions: [first], stepMinutes: 5 });
+  const combined = simulate({ sex: 'male', weight: 80, age: 35, sessions: [first, overlapping], stepMinutes: 5 });
+  const peak = (res) => Math.max(...res.timeline.map((t) => t.bac));
+  assert.ok(peak(combined) > peak(separate) + 0.15, 'Overlapping later session should contribute during its actual time window');
 }
 
 function testAbsorption(weights, doses, doseGrams, doseStart) {
@@ -167,6 +207,15 @@ function testElimination(doseGrams, doseStart) {
   const elimRate = elimRes.params.elimPermillePerHour;
   assert.ok(drop >= 0, 'BAC should not increase after peak');
   assert.ok(drop <= elimRate + 0.05, `Elimination over 1h should not exceed rate (~${elimRate}‰/h, got drop ${drop})`);
+}
+
+function testCustomEliminationRate(doseGrams, doseStart) {
+  const session = { start: doseStart, end: new Date(doseStart.getTime() + 60 * 60000), grams: doseGrams(10) };
+  const slow = simulate({ sex: 'male', weight: 80, age: 40, sessions: [session], eliminationRatePermillePerHour: 0.10 });
+  const fast = simulate({ sex: 'male', weight: 80, age: 40, sessions: [session], eliminationRatePermillePerHour: 0.20 });
+  const hoursOver = (res) => res.timeline.filter((t) => t.bac >= 0.5).length * res.params.stepMinutes / 60;
+  assert.strictEqual(slow.params.eliminationRatePermillePerHour, 0.10, 'Custom elimination rate should be stored in params');
+  assert.ok(hoursOver(slow) > hoursOver(fast), 'Lower elimination rate should keep BAC over threshold longer');
 }
 
 

@@ -242,6 +242,35 @@ form input:focus, form select:focus {
   padding: 1px 3px;
   border-radius: 6px;
 }
+.secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+}
+.initial-peth-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin-top: 8px;
+}
+.initial-peth-row .field {
+  flex: 1 1 145px;
+}
+.small-tool-btn {
+  background: #f1f3f8;
+  border: 1px solid #dfe4ee;
+  border-radius: 6px;
+  padding: 3px 6px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #4c5563;
+  font-size: 13px;
+}
+.small-tool-btn:hover {
+  background: #e5eaf4;
+}
 
 .btn.ghost {
   background: #eef3fb;
@@ -474,6 +503,21 @@ form input:focus, form select:focus {
 .calc-total {
   font-weight: 700;
   color: #1d2733;
+}
+.series-text {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  border-radius: 8px;
+  border: 1px solid #cbd5e3;
+  padding: 8px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.series-error {
+  min-height: 18px;
+  font-size: 13px;
 }
 .input-note {
   font-size: 12px;

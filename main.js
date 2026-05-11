@@ -9,6 +9,11 @@ const sessionModal = document.getElementById('session-modal');
 const sessionForm = document.getElementById('session-form');
 const sessionClose = document.getElementById('session-close');
 const useEndTimeCheckbox = document.getElementById('use-end-time');
+const seriesModal = document.getElementById('series-modal');
+const seriesForm = document.getElementById('series-form');
+const seriesText = document.getElementById('series-text');
+const seriesClose = document.getElementById('series-close');
+const seriesError = document.getElementById('series-error');
 const paramsModal = document.getElementById('params-modal');
 const paramsForm = document.getElementById('params-form');
 const paramsClose = document.getElementById('params-close');
@@ -18,6 +23,7 @@ const langFlag = document.getElementById('lang-flag');
 const bacUnitSelect = document.getElementById('bac-unit');
 const drinkList = document.getElementById('drink-list');
 const addDrinkBtn = document.getElementById('add-drink');
+const editSeriesBtn = document.getElementById('edit-series');
 let activeGramsInput = null;
 
 let currentLang = detectLang();
@@ -64,7 +70,7 @@ function createSessionRow(session) {
     <div style="min-width:120px;">
       <label data-i18n="ethanolLabel">${translations[currentLang].ethanolLabel}</label>
       <div class="ethanol-input">
-        <input type="number" class="grams" min="0.1" step="0.1" value="${session.ml}" required />
+        <input type="number" class="grams" min="0.1" step="0.1" value="${session.ml}" placeholder="${translations[currentLang].ethanolPlaceholder || ''}" required />
         <button type="button" class="calc-grams" aria-label="Calculate mL from volume and %">${translations[currentLang].calcBtn}</button>
       </div>
     </div>
@@ -115,6 +121,7 @@ addSessionBtn.addEventListener('click', () => {
 });
 
 addDrinkBtn.addEventListener('click', () => createDrinkRow());
+editSeriesBtn.addEventListener('click', openSeriesModal);
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
@@ -145,6 +152,8 @@ paramsReset.addEventListener('click', () => {
   document.getElementById('time-step').value = 5;
   document.getElementById('peth-half-life').value = 4.5;
   document.getElementById('formation-rate').value = 11.3;
+  document.getElementById('elimination-rate').value = 0.15;
+  clearInitialPeth();
   document.getElementById('absorption-enabled').checked = true;
   document.getElementById('use-blood-water').checked = true;
   const maleR = document.getElementById('male-r');
@@ -185,6 +194,15 @@ sessionForm.addEventListener('submit', (e) => {
   sessionModal.dataset.target = '';
 });
 
+seriesClose.addEventListener('click', closeSeriesModal);
+seriesModal.addEventListener('click', (e) => {
+  if (e.target === seriesModal) closeSeriesModal();
+});
+seriesForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  saveSeriesText();
+});
+
 langSelect.addEventListener('change', () => {
   applyTranslations(langSelect.value);
 });
@@ -210,6 +228,330 @@ if (absorptionCheckbox) {
 function toInputValue(date) {
   const pad = (n) => String(n).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function toSeriesDateTime(value) {
+  return value.replace('T', '+');
+}
+
+function profileToSeriesValue(profile) {
+  return profile === 'mixed' ? 'medium' : profile;
+}
+
+function seriesValueToProfile(value) {
+  const normalized = value.toLowerCase();
+  if (normalized === 'medium') return 'mixed';
+  if (['empty', 'light', 'mixed', 'heavy'].includes(normalized)) return normalized;
+  return null;
+}
+
+function serializeSessionsToText() {
+  const sexValue = document.getElementById('sex').value;
+  const sexLabel = sexValue === 'female' ? 'Female' : 'Male';
+  const weight = parseFloat(document.getElementById('weight').value);
+  const age = parseInt(document.getElementById('age').value, 10);
+  const personLine = `${sexLabel} ${Number.isFinite(weight) ? formatSeriesAmount(weight) : ''}kg ${Number.isFinite(age) ? age : ''}y`;
+  const paramsLine = serializeAdditionalParams();
+  const mealFactorsLine = serializeMealFactors();
+  const initialPethLine = serializeInitialPeth();
+  const sessionLines = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
+    const start = row.querySelector('.start')?.value || '';
+    const end = row.querySelector('.end')?.value || '';
+    const ml = parseFloat(row.querySelector('.grams')?.value);
+    const profile = row.querySelector('.abs-profile')?.value || 'empty';
+    const amount = Number.isFinite(ml) ? `${formatSeriesAmount(ml)}mL` : '0mL';
+    return `${toSeriesDateTime(start)} ${toSeriesDateTime(end)} ${amount} ${profileToSeriesValue(profile)}`;
+  });
+  return [personLine, paramsLine, mealFactorsLine, initialPethLine, ...sessionLines].filter(Boolean).join('\n');
+}
+
+function formatSeriesAmount(value) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
+}
+
+function formatSeriesParam(value) {
+  return Number.isFinite(value) ? value.toFixed(2) : '0.00';
+}
+
+function serializeAdditionalParams() {
+  const values = {
+    step: parseFloat(document.getElementById('time-step').value),
+    elim: parseFloat(document.getElementById('elimination-rate').value),
+    maleR: parseFloat(document.getElementById('male-r').value),
+    femaleR: parseFloat(document.getElementById('female-r').value),
+    bloodWater: document.getElementById('use-blood-water').checked,
+    absorption: document.getElementById('absorption-enabled').checked,
+    pethFormation: parseFloat(document.getElementById('formation-rate').value),
+    pethHalfLife: parseFloat(document.getElementById('peth-half-life').value),
+  };
+  return [
+    'Params',
+    `step=${Number.isFinite(values.step) ? Math.round(values.step) : 0}min`,
+    `elim=${formatSeriesParam(values.elim)}`,
+    `maleR=${formatSeriesParam(values.maleR)}`,
+    `femaleR=${formatSeriesParam(values.femaleR)}`,
+    `bloodWater=${values.bloodWater ? 'on' : 'off'}`,
+    `absorption=${values.absorption ? 'on' : 'off'}`,
+    `pethFormation=${formatSeriesParam(values.pethFormation)}`,
+    `pethHalfLife=${formatSeriesParam(values.pethHalfLife)}d`,
+  ].join(' ');
+}
+
+function serializeMealFactors() {
+  const factors = getMealProfileSettings();
+  return [
+    'MealFactors',
+    `empty=${formatSeriesParam(factors.empty.factor)}`,
+    `light=${formatSeriesParam(factors.light.factor)}`,
+    `medium=${formatSeriesParam(factors.mixed.factor)}`,
+    `heavy=${formatSeriesParam(factors.heavy.factor)}`,
+  ].join(' ');
+}
+
+function serializeInitialPeth() {
+  const date = document.getElementById('initial-peth-date')?.value || '';
+  const level = parseFloat(document.getElementById('initial-peth-level')?.value);
+  if (!date || !Number.isFinite(level) || level <= 0) return '';
+  return `InitialPEth ${toSeriesDateTime(date)} ${formatSeriesParam(level)}umol`;
+}
+
+function parseSeriesNumber(value, suffix = '') {
+  const source = suffix && value.toLowerCase().endsWith(suffix.toLowerCase()) ? value.slice(0, -suffix.length) : value;
+  const number = parseFloat(source.replace(',', '.'));
+  return Number.isFinite(number) ? number : null;
+}
+
+function parseSeriesBoolean(value) {
+  const normalized = value.toLowerCase();
+  if (['on', 'true', 'yes', '1'].includes(normalized)) return true;
+  if (['off', 'false', 'no', '0'].includes(normalized)) return false;
+  return null;
+}
+
+function parseKeyValueTokens(tokens) {
+  const values = {};
+  const bad = [];
+  tokens.forEach((token) => {
+    const match = token.match(/^([A-Za-z]+)=([^=\s]+)$/);
+    if (!match) {
+      bad.push(token);
+      return;
+    }
+    values[match[1]] = match[2];
+  });
+  return { values, bad };
+}
+
+function parseSeriesText(text) {
+  const rows = [];
+  const errors = [];
+  let person = null;
+  let params = null;
+  let mealFactors = null;
+  let initialPeth = null;
+  let sawPerson = false;
+  const personPattern = /^(male|female|mies|nainen)\s+(\d+(?:[.,]\d+)?)\s*kg\s+(\d+)\s*y$/i;
+  const linePattern = /^(\d{4}-\d{2}-\d{2})[+T](\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})[+T](\d{2}:\d{2})\s+(\d+(?:[.,]\d+)?)\s*mL\s+([A-Za-z]+)$/i;
+  text.split(/\r?\n/).forEach((rawLine, idx) => {
+    const line = rawLine.trim();
+    if (!line) return;
+    const parts = line.split(/\s+/);
+    if (!sawPerson && !rows.length) {
+      const personMatch = line.match(personPattern);
+      if (personMatch) {
+        const sexRaw = personMatch[1].toLowerCase();
+        const weight = parseFloat(personMatch[2].replace(',', '.'));
+        const age = parseInt(personMatch[3], 10);
+        const sex = (sexRaw === 'female' || sexRaw === 'nainen') ? 'female' : 'male';
+        if (!Number.isFinite(weight) || weight <= 0 || !Number.isFinite(age) || age <= 0) {
+          errors.push(`${idx + 1}: ${line}`);
+        } else {
+          person = { sex, weight, age };
+        }
+        sawPerson = true;
+        return;
+      }
+    }
+    if (parts[0].toLowerCase() === 'params') {
+      const parsed = parseSeriesParams(parts.slice(1), line);
+      if (parsed.error) errors.push(`${idx + 1}: ${line}`);
+      else params = parsed.params;
+      return;
+    }
+    if (parts[0].toLowerCase() === 'mealfactors') {
+      const parsed = parseSeriesMealFactors(parts.slice(1), line);
+      if (parsed.error) errors.push(`${idx + 1}: ${line}`);
+      else mealFactors = parsed.mealFactors;
+      return;
+    }
+    if (parts[0].toLowerCase() === 'initialpeth') {
+      const parsed = parseInitialPeth(parts.slice(1));
+      if (parsed.error) errors.push(`${idx + 1}: ${line}`);
+      else initialPeth = parsed.initialPeth;
+      return;
+    }
+    const match = line.match(linePattern);
+    if (!match) {
+      errors.push(`${idx + 1}: ${line}`);
+      return;
+    }
+    const [, startDate, startTime, endDate, endTime, amountRaw, profileRaw] = match;
+    const start = `${startDate}T${startTime}`;
+    const end = `${endDate}T${endTime}`;
+    const startDateObj = new Date(start);
+    const endDateObj = new Date(end);
+    const ml = parseFloat(amountRaw.replace(',', '.'));
+    const absProfile = seriesValueToProfile(profileRaw);
+    if (Number.isNaN(startDateObj.getTime()) || Number.isNaN(endDateObj.getTime()) || endDateObj <= startDateObj || !Number.isFinite(ml) || ml <= 0 || !absProfile) {
+      errors.push(`${idx + 1}: ${line}`);
+      return;
+    }
+    rows.push({ start, end, ml, absProfile, useEndTime: true });
+  });
+  if (!rows.length && !errors.length) {
+    errors.push((translations[currentLang] || translations.en).seriesEmptyError || 'No rows to save.');
+  }
+  return { person, params, mealFactors, initialPeth, rows, errors };
+}
+
+function parseSeriesParams(tokens) {
+  const { values, bad } = parseKeyValueTokens(tokens);
+  const parsed = {};
+  if (bad.length) {
+    return { error: true };
+  }
+  const numericKeys = [
+    ['step', 'step', 'min'],
+    ['elim', 'elim', ''],
+    ['maleR', 'maleR', ''],
+    ['femaleR', 'femaleR', ''],
+    ['pethFormation', 'pethFormation', ''],
+    ['pethHalfLife', 'pethHalfLife', 'd'],
+  ];
+  for (const [sourceKey, targetKey, suffix] of numericKeys) {
+    if (values[sourceKey] === undefined) continue;
+    const value = parseSeriesNumber(values[sourceKey], suffix);
+    if (value === null) return { error: true };
+    parsed[targetKey] = value;
+  }
+  const boolKeys = [['bloodWater', 'bloodWater'], ['absorption', 'absorption']];
+  for (const [sourceKey, targetKey] of boolKeys) {
+    if (values[sourceKey] === undefined) continue;
+    const value = parseSeriesBoolean(values[sourceKey]);
+    if (value === null) return { error: true };
+    parsed[targetKey] = value;
+  }
+  return { params: parsed };
+}
+
+function parseSeriesMealFactors(tokens) {
+  const { values, bad } = parseKeyValueTokens(tokens);
+  if (bad.length) {
+    return { error: true };
+  }
+  const result = {};
+  for (const key of ['empty', 'light', 'heavy']) {
+    if (values[key] === undefined) continue;
+    const value = parseSeriesNumber(values[key]);
+    if (value === null || value <= 0) return { error: true };
+    result[key] = value;
+  }
+  const mixedSource = values.medium !== undefined ? values.medium : values.mixed;
+  if (mixedSource !== undefined) {
+    const value = parseSeriesNumber(mixedSource);
+    if (value === null || value <= 0) return { error: true };
+    result.mixed = value;
+  }
+  return { mealFactors: result };
+}
+
+function parseInitialPeth(tokens) {
+  if (tokens.length !== 2) return { error: true };
+  const dateValue = tokens[0].replace('+', 'T');
+  const date = new Date(dateValue);
+  const level = parseSeriesNumber(tokens[1], 'umol');
+  if (Number.isNaN(date.getTime()) || level === null || level < 0) {
+    return { error: true };
+  }
+  return { initialPeth: { date: dateValue, level } };
+}
+
+function openSeriesModal() {
+  seriesText.value = serializeSessionsToText();
+  seriesError.textContent = '';
+  seriesModal.classList.remove('hidden');
+  seriesText.focus();
+}
+
+function closeSeriesModal() {
+  seriesModal.classList.add('hidden');
+  seriesError.textContent = '';
+}
+
+function saveSeriesText() {
+  const t = translations[currentLang] || translations.en;
+  const { person, params, mealFactors, initialPeth, rows, errors } = parseSeriesText(seriesText.value);
+  if (errors.length) {
+    seriesError.textContent = `${t.seriesParseError || 'Could not parse rows'}: ${errors.join('; ')}`;
+    return;
+  }
+  if (person) {
+    document.getElementById('sex').value = person.sex;
+    document.getElementById('weight').value = formatSeriesAmount(person.weight);
+    document.getElementById('age').value = person.age;
+  }
+  if (params) {
+    applySeriesParams(params);
+  }
+  if (mealFactors) {
+    applySeriesMealFactors(mealFactors);
+  }
+  if (initialPeth) {
+    applyInitialPeth(initialPeth);
+  } else {
+    clearInitialPeth();
+  }
+  sessionsEl.innerHTML = '';
+  rows.forEach(createSessionRow);
+  closeSeriesModal();
+  render(runSim(getParams()));
+}
+
+function applyInitialPeth(initialPeth) {
+  document.getElementById('initial-peth-date').value = initialPeth.date;
+  document.getElementById('initial-peth-level').value = formatSeriesParam(initialPeth.level);
+}
+
+function clearInitialPeth() {
+  document.getElementById('initial-peth-date').value = '';
+  document.getElementById('initial-peth-level').value = '0';
+}
+
+function applySeriesParams(params) {
+  if (params.step !== undefined) document.getElementById('time-step').value = String(Math.round(params.step));
+  if (params.elim !== undefined) document.getElementById('elimination-rate').value = formatSeriesParam(params.elim);
+  if (params.maleR !== undefined) document.getElementById('male-r').value = formatSeriesParam(params.maleR);
+  if (params.femaleR !== undefined) document.getElementById('female-r').value = formatSeriesParam(params.femaleR);
+  if (params.bloodWater !== undefined) document.getElementById('use-blood-water').checked = params.bloodWater;
+  if (params.absorption !== undefined) document.getElementById('absorption-enabled').checked = params.absorption;
+  if (params.pethFormation !== undefined) document.getElementById('formation-rate').value = formatSeriesParam(params.pethFormation);
+  if (params.pethHalfLife !== undefined) document.getElementById('peth-half-life').value = formatSeriesParam(params.pethHalfLife);
+  toggleMealSelects(document.getElementById('absorption-enabled').checked);
+}
+
+function applySeriesMealFactors(factors) {
+  const mapping = {
+    empty: factors.empty,
+    light: factors.light,
+    mixed: factors.mixed,
+    heavy: factors.heavy,
+  };
+  Object.entries(mapping).forEach(([profile, value]) => {
+    if (value === undefined) return;
+    const input = document.querySelector(`.meal-factor[data-profile="${profile}"]`);
+    if (input) input.value = formatSeriesParam(value);
+  });
+  mealProfiles = getMealProfileSettings();
 }
 
 function openSessionModal(row) {
@@ -268,11 +610,15 @@ function getParams() {
   const age = parseInt(document.getElementById('age').value, 10);
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
   const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
+  const eliminationRate = parseFloat(document.getElementById('elimination-rate').value) || 0.15;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
   const maleR = parseFloat(document.getElementById('male-r').value) || 0.68;
   const femaleR = parseFloat(document.getElementById('female-r').value) || 0.55;
   const absorptionEnabled = document.getElementById('absorption-enabled').checked;
   const useBloodWater = document.getElementById('use-blood-water').checked;
+  const initialPethDateValue = document.getElementById('initial-peth-date').value;
+  const initialPethLevel = parseFloat(document.getElementById('initial-peth-level').value);
+  const initialPethDate = initialPethDateValue ? new Date(initialPethDateValue) : null;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
     const start = new Date(row.querySelector('.start').value);
     const endInput = row.querySelector('.end');
@@ -285,7 +631,7 @@ function getParams() {
     const absFactor = (mealProfiles[absProfile] && mealProfiles[absProfile].factor) || 1;
     return { start, end, grams, ml, absProfile, absFactor, useEndTime };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled, useBloodWater, maleR, femaleR };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, eliminationRatePermillePerHour: eliminationRate, initialPethDate, initialPethUmol: Number.isFinite(initialPethLevel) ? initialPethLevel : 0, absorptionEnabled, useBloodWater, maleR, femaleR };
 }
 
 function getMealProfileSettings() {
@@ -319,13 +665,15 @@ function render(result) {
   const peakBAC = convertBac(peakBACPermille, unit);
   const thresholdPermille = 0.5;
   const thresholdConverted = convertBac(thresholdPermille, unit);
-  const timeOver = timeline.filter((t) => t.bac >= thresholdPermille).length * 5; // minutes
+  const timeOver = timeline.filter((t) => t.bac >= thresholdPermille).length * result.params.stepMinutes; // minutes
+  const clearMinutes = minutesUntilAlcoholCleared(timeline, result.params.stepMinutes);
   const peakPEthUmol = Math.max(...timeline.map((t) => toUmolFn(t.pethNgMl)));
 
   document.getElementById('peak-bac').textContent = formatBac(peakBAC, unit);
   const thresholdLabel = formatBac(thresholdConverted, unit);
   document.getElementById('time-over-label').textContent = `${t.statTimeOver} ${thresholdLabel}`;
   document.getElementById('time-over').textContent = `${(timeOver / 60).toFixed(1)} h`;
+  document.getElementById('time-clear').textContent = `${(clearMinutes / 60).toFixed(1)} h`;
   document.getElementById('peak-peth').textContent = `${peakPEthUmol.toFixed(3)} µmol/L`;
 
   const bacPoints = timeline.map((t) => ({ x: t.time, y: convertBac(t.bac, unit) }));
@@ -408,6 +756,20 @@ function render(result) {
     step: result.params.stepMinutes.toFixed(0),
   });
   document.getElementById('model-note').textContent = note;
+}
+
+function minutesUntilAlcoholCleared(timeline, stepMinutes) {
+  const epsilon = 0.005;
+  let lastAlcoholIdx = -1;
+  for (let i = 0; i < timeline.length; i++) {
+    if (timeline[i].bac > epsilon) {
+      lastAlcoholIdx = i;
+    }
+  }
+  if (lastAlcoholIdx < 0) return 0;
+  const start = timeline[0].time.getTime();
+  const last = timeline[lastAlcoholIdx].time.getTime();
+  return Math.max(0, (last - start) / 60000 + stepMinutes);
 }
 
 function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick, showHours }, highlight, desiredWidth) {
@@ -838,11 +1200,15 @@ const setText = (id, text) => {
   setText('half-label', t.halfLife);
   setText('sessions-title', t.sessionsTitle);
   setText('add-session', t.addSession);
+  setText('initial-peth-date-label', t.initialPethDateLabel || 'Initial PEth date');
+  setText('initial-peth-level-label', t.initialPethLevelLabel || 'Initial PEth');
+  setText('edit-series', t.editSeries || 'Edit as text');
   setText('run-btn', t.run);
   setText('more-params', t.moreParams);
   setText('form-note', t.formNote);
   setText('peak-bac-label', t.statPeakBAC);
   setText('time-over-label', t.statTimeOver);
+  setText('time-clear-label', t.statTimeClear || 'Alcohol cleared');
   setText('peak-peth-label', t.statPeakPEth);
   setText('bac-chart-label', t.chartBAC);
   setText('peth-chart-label', t.chartPEth);
@@ -862,9 +1228,11 @@ const setText = (id, text) => {
   setText('hdr-abv', t.hdrAbv);
   setText('hdr-doses', t.hdrDoses);
   setText('formation-rate-label', t.formationRateLabel);
+  setText('elimination-rate-label', t.eliminationRateLabel);
   setText('time-step-note', t.timeStepNote);
   setText('half-note', t.halfNote);
   setText('formation-rate-note', t.formationRateNote);
+  setText('elimination-rate-note', t.eliminationRateNote);
   setText('male-r-label', t.maleRLabel || 'Widmark r (male)');
   setText('female-r-label', t.femaleRLabel || 'Widmark r (female)');
   setText('r-note', t.rNote || '');
@@ -882,8 +1250,7 @@ const setText = (id, text) => {
   setText('meal-param-light-label', t.mealLight);
   setText('meal-param-mixed-label', t.mealMixed);
   setText('meal-param-heavy-label', t.mealHeavy);
-  const totalEl = document.getElementById('calc-total');
-  if (totalEl) totalEl.textContent = `${t.calcTotal}: ${formatMl(calcPureMl())} (${formatDoses(calcPureMl() * 0.768 / 12, t.calcDoses || 'doses')})`;
+  updateCalcTotal();
   setOptionText('opt-beer', t.calcOptBeer);
   setOptionText('opt-beer05', t.calcOptBeer05);
   setOptionText('opt-beerStrong', t.calcOptBeerStrong);
@@ -905,6 +1272,9 @@ const setText = (id, text) => {
   setText('session-title', t.sessionTitle || t.paramsTitle);
   setText('session-apply', t.sessionApply || t.paramsApply);
   setText('use-end-time-label', t.useEndTimeLabel || 'Use end time');
+  setText('series-title', t.seriesTitle || 'Drinking series as text');
+  setText('series-note', t.seriesNote || '');
+  setText('series-apply', t.seriesApply || t.paramsApply);
   // Sex option labels
   const sexSelect = document.getElementById('sex');
   if (sexSelect && sexSelect.options.length >= 2) {
@@ -915,6 +1285,7 @@ const setText = (id, text) => {
   document.querySelectorAll('[data-i18n="start"]').forEach((el) => { el.textContent = t.start; });
   document.querySelectorAll('[data-i18n="end"]').forEach((el) => { el.textContent = t.end; });
   document.querySelectorAll('[data-i18n="ethanolLabel"]').forEach((el) => { el.textContent = t.ethanolLabel; });
+  document.querySelectorAll('.grams').forEach((el) => { el.placeholder = t.ethanolPlaceholder || ''; });
   document.querySelectorAll('.calc-grams').forEach((el) => { el.textContent = t.calcBtn; });
   document.querySelectorAll('.abs-profile').forEach((el) => {
     const current = el.value;
