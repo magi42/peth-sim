@@ -192,6 +192,15 @@ form input[type="checkbox"] {
 .field-inline select {
   width: auto;
 }
+.param-inline {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.param-inline .field {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
 
 input.grams {
   width: 100px;

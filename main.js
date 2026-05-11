@@ -12,6 +12,7 @@ const useEndTimeCheckbox = document.getElementById('use-end-time');
 const paramsModal = document.getElementById('params-modal');
 const paramsForm = document.getElementById('params-form');
 const paramsClose = document.getElementById('params-close');
+const paramsReset = document.getElementById('params-reset');
 const langSelect = document.getElementById('lang-select');
 const langFlag = document.getElementById('lang-flag');
 const bacUnitSelect = document.getElementById('bac-unit');
@@ -135,6 +136,19 @@ paramsForm.addEventListener('submit', (e) => {
   paramsModal.classList.add('hidden');
 });
 
+paramsReset.addEventListener('click', () => {
+  document.getElementById('time-step').value = 5;
+  document.getElementById('peth-half-life').value = 4.5;
+  document.getElementById('formation-rate').value = 11.3;
+  document.getElementById('absorption-enabled').checked = true;
+  document.getElementById('use-blood-water').checked = true;
+  const maleR = document.getElementById('male-r');
+  const femaleR = document.getElementById('female-r');
+  if (maleR) maleR.value = 0.68;
+  if (femaleR) femaleR.value = 0.55;
+  applyTranslations(currentLang);
+});
+
 sessionClose.addEventListener('click', () => {
   sessionModal.classList.add('hidden');
   sessionModal.dataset.target = '';
@@ -250,6 +264,8 @@ function getParams() {
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
   const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
+  const maleR = parseFloat(document.getElementById('male-r').value) || 0.68;
+  const femaleR = parseFloat(document.getElementById('female-r').value) || 0.55;
   const absorptionEnabled = document.getElementById('absorption-enabled').checked;
   const useBloodWater = document.getElementById('use-blood-water').checked;
   const sessions = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
@@ -264,7 +280,7 @@ function getParams() {
     const absFactor = (MEAL_PROFILES[absProfile] && MEAL_PROFILES[absProfile].factor) || 1;
     return { start, end, grams, ml, absProfile, absFactor, useEndTime };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled, useBloodWater };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, absorptionEnabled, useBloodWater, maleR, femaleR };
 }
 
 function render(result) {
@@ -776,7 +792,7 @@ function applyTranslations(lang) {
     const opt = langSelect.querySelector(`option[value="${lang}"]`);
     langFlag.textContent = opt ? opt.dataset.flag || '' : '';
   }
-  const setText = (id, text) => {
+const setText = (id, text) => {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
   };
@@ -823,6 +839,9 @@ function applyTranslations(lang) {
   setText('time-step-note', t.timeStepNote);
   setText('half-note', t.halfNote);
   setText('formation-rate-note', t.formationRateNote);
+  setText('male-r-label', t.maleRLabel || 'Widmark r (male)');
+  setText('female-r-label', t.femaleRLabel || 'Widmark r (female)');
+  setText('r-note', t.rNote || '');
   setText('abs-rate-label', t.absRateLabel);
   setText('abs-rate-note', t.absRateNote);
   setText('abs-max-label', t.absMaxLabel);
@@ -848,6 +867,7 @@ function applyTranslations(lang) {
   setText('params-title', t.paramsTitle);
   setText('time-step-label', t.timeStep);
   setText('params-apply', t.paramsApply);
+  setText('params-reset', t.paramsReset || 'Reset to defaults');
   setText('session-title', t.sessionTitle || t.paramsTitle);
   setText('session-apply', t.sessionApply || t.paramsApply);
   setText('use-end-time-label', t.useEndTimeLabel || 'Use end time');
