@@ -30,6 +30,8 @@ let currentLang = detectLang();
 let lastResult = null;
 let sessionIdCounter = 0;
 let windowMode = (document.querySelector('input[name="window-mode"]:checked')?.value) || '3d';
+let bacMeasurements = [];
+let pethMeasurements = [];
 
 const defaultSessions = [
   { start: '2025-01-01T17:00', end: '2025-01-01T21:00', ml: 10*1*70*0.38, useEndTime: true }, // One 70 cL of 38% Kossu
@@ -254,15 +256,8 @@ function serializeSessionsToText() {
   const paramsLine = serializeAdditionalParams();
   const mealFactorsLine = serializeMealFactors();
   const initialPethLine = serializeInitialPeth();
-  const sessionLines = Array.from(sessionsEl.querySelectorAll('.session-row')).map((row) => {
-    const start = row.querySelector('.start')?.value || '';
-    const end = row.querySelector('.end')?.value || '';
-    const ml = parseFloat(row.querySelector('.grams')?.value);
-    const profile = row.querySelector('.abs-profile')?.value || 'empty';
-    const amount = Number.isFinite(ml) ? `${formatSeriesAmount(ml)}mL` : '0mL';
-    return `${toSeriesDateTime(start)} ${toSeriesDateTime(end)} ${amount} ${profileToSeriesValue(profile)}`;
-  });
-  return [personLine, paramsLine, mealFactorsLine, initialPethLine, ...sessionLines].filter(Boolean).join('\n');
+  const dataLines = serializeSeriesDataLines();
+  return [personLine, paramsLine, mealFactorsLine, initialPethLine, ...dataLines].filter(Boolean).join('\n');
 }
 
 function formatSeriesAmount(value) {
@@ -315,6 +310,40 @@ function serializeInitialPeth() {
   return `InitialPEth ${toSeriesDateTime(date)} ${formatSeriesParam(level)}umol`;
 }
 
+function serializeSeriesDataLines() {
+  const items = [];
+  Array.from(sessionsEl.querySelectorAll('.session-row')).forEach((row) => {
+    const start = row.querySelector('.start')?.value || '';
+    const end = row.querySelector('.end')?.value || '';
+    const ml = parseFloat(row.querySelector('.grams')?.value);
+    const profile = row.querySelector('.abs-profile')?.value || 'empty';
+    const amount = Number.isFinite(ml) ? `${formatSeriesAmount(ml)}mL` : '0mL';
+    items.push({
+      time: new Date(start).getTime(),
+      order: 2,
+      line: `${toSeriesDateTime(start)} ${toSeriesDateTime(end)} ${amount} ${profileToSeriesValue(profile)}`,
+    });
+  });
+  bacMeasurements.forEach((measurement) => {
+    items.push({
+      time: measurement.time.getTime(),
+      order: 0,
+      line: `BAC ${toSeriesDateTime(toInputValue(measurement.time))} ${formatSeriesParam(measurement.bacPermille)}`,
+    });
+  });
+  pethMeasurements.forEach((measurement) => {
+    items.push({
+      time: measurement.time.getTime(),
+      order: 1,
+      line: `PEth ${toSeriesDateTime(toInputValue(measurement.time))} ${formatSeriesParam(measurement.pethUmol)}`,
+    });
+  });
+  return items
+    .filter((item) => Number.isFinite(item.time))
+    .sort((a, b) => a.time - b.time || a.order - b.order)
+    .map((item) => item.line);
+}
+
 function parseSeriesNumber(value, suffix = '') {
   const source = suffix && value.toLowerCase().endsWith(suffix.toLowerCase()) ? value.slice(0, -suffix.length) : value;
   const number = parseFloat(source.replace(',', '.'));
@@ -349,6 +378,8 @@ function parseSeriesText(text) {
   let params = null;
   let mealFactors = null;
   let initialPeth = null;
+  const bacRows = [];
+  const pethRows = [];
   let sawPerson = false;
   const personPattern = /^(male|female|mies|nainen)\s+(\d+(?:[.,]\d+)?)\s*kg\s+(\d+)\s*y$/i;
   const linePattern = /^(\d{4}-\d{2}-\d{2})[+T](\d{2}:\d{2})\s+(\d{4}-\d{2}-\d{2})[+T](\d{2}:\d{2})\s+(\d+(?:[.,]\d+)?)\s*mL\s+([A-Za-z]+)$/i;
@@ -390,6 +421,18 @@ function parseSeriesText(text) {
       else initialPeth = parsed.initialPeth;
       return;
     }
+    if (parts[0].toLowerCase() === 'bac') {
+      const parsed = parseValueMeasurement(parts.slice(1), 'bacPermille');
+      if (parsed.error) errors.push(`${idx + 1}: ${line}`);
+      else bacRows.push(parsed.measurement);
+      return;
+    }
+    if (parts[0].toLowerCase() === 'peth') {
+      const parsed = parseValueMeasurement(parts.slice(1), 'pethUmol');
+      if (parsed.error) errors.push(`${idx + 1}: ${line}`);
+      else pethRows.push(parsed.measurement);
+      return;
+    }
     const match = line.match(linePattern);
     if (!match) {
       errors.push(`${idx + 1}: ${line}`);
@@ -411,7 +454,7 @@ function parseSeriesText(text) {
   if (!rows.length && !errors.length) {
     errors.push((translations[currentLang] || translations.en).seriesEmptyError || 'No rows to save.');
   }
-  return { person, params, mealFactors, initialPeth, rows, errors };
+  return { person, params, mealFactors, initialPeth, bacRows, pethRows, rows, errors };
 }
 
 function parseSeriesParams(tokens) {
@@ -476,6 +519,17 @@ function parseInitialPeth(tokens) {
   return { initialPeth: { date: dateValue, level } };
 }
 
+function parseValueMeasurement(tokens, valueKey) {
+  if (tokens.length !== 2) return { error: true };
+  const dateValue = tokens[0].replace('+', 'T');
+  const date = new Date(dateValue);
+  const value = parseSeriesNumber(tokens[1]);
+  if (Number.isNaN(date.getTime()) || value === null || value < 0) {
+    return { error: true };
+  }
+  return { measurement: { time: date, [valueKey]: value } };
+}
+
 function openSeriesModal() {
   seriesText.value = serializeSessionsToText();
   seriesError.textContent = '';
@@ -490,7 +544,7 @@ function closeSeriesModal() {
 
 function saveSeriesText() {
   const t = translations[currentLang] || translations.en;
-  const { person, params, mealFactors, initialPeth, rows, errors } = parseSeriesText(seriesText.value);
+  const { person, params, mealFactors, initialPeth, bacRows, pethRows, rows, errors } = parseSeriesText(seriesText.value);
   if (errors.length) {
     seriesError.textContent = `${t.seriesParseError || 'Could not parse rows'}: ${errors.join('; ')}`;
     return;
@@ -511,8 +565,10 @@ function saveSeriesText() {
   } else {
     clearInitialPeth();
   }
+  bacMeasurements = bacRows.sort((a, b) => a.time - b.time);
+  pethMeasurements = pethRows.sort((a, b) => a.time - b.time);
   sessionsEl.innerHTML = '';
-  rows.forEach(createSessionRow);
+  rows.sort((a, b) => new Date(a.start) - new Date(b.start)).forEach(createSessionRow);
   closeSeriesModal();
   render(runSim(getParams()));
 }
@@ -678,9 +734,19 @@ function render(result) {
 
   const bacPoints = timeline.map((t) => ({ x: t.time, y: convertBac(t.bac, unit) }));
   const pethPoints = timeline.map((t) => ({ x: t.time, y: toUmolFn(t.pethNgMl) }));
+  const bacMarkers = bacMeasurements.map((m) => ({
+    x: m.time,
+    y: convertBac(m.bacPermille, unit),
+    label: formatBac(convertBac(m.bacPermille, unit), unit),
+  }));
+  const pethMarkers = pethMeasurements.map((m) => ({
+    x: m.time,
+    y: m.pethUmol,
+    label: `${m.pethUmol.toFixed(2)} µmol/L`,
+  }));
 
   // Calculate time range of the simulation until PEth drops below 0.05 µmol/L
-  const times = timeline.map((p) => p.time.getTime());
+  const times = timeline.map((p) => p.time.getTime()).concat(bacMeasurements.map((m) => m.time.getTime()), pethMeasurements.map((m) => m.time.getTime()));
   const minT = Math.min(...times);
   const maxT = Math.max(...times);
   const totalMs = Math.max(1, maxT - minT);
@@ -708,11 +774,11 @@ function render(result) {
 
   const bacDesired = wrapperWidth * widthFactor;
   const pethDesired = wrapperWidth * widthFactor;
-  drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions, null, bacDesired);
-  drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions, null, pethDesired);
+  drawChart(document.getElementById('bac-chart'), bacPoints, bacOptions, null, bacDesired, bacMarkers);
+  drawChart(document.getElementById('peth-chart'), pethPoints, pethOptions, null, pethDesired, pethMarkers);
 
-  enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions, bacDesired);
-  enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions, pethDesired);
+  enableHover(document.getElementById('bac-chart'), bacPoints, bacOptions, bacDesired, bacMarkers);
+  enableHover(document.getElementById('peth-chart'), pethPoints, pethOptions, pethDesired, pethMarkers);
 
   const setScrollFrac = (wrap, frac) => {
     if (!wrap)
@@ -772,7 +838,7 @@ function minutesUntilAlcoholCleared(timeline, stepMinutes) {
   return Math.max(0, (last - start) / 60000 + stepMinutes);
 }
 
-function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick, showHours }, highlight, desiredWidth) {
+function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axisLabel, axisTick, showHours }, highlight, desiredWidth, markers = []) {
   const { ctx, w, h } = ensureCanvasSize(canvas, desiredWidth);
   ctx.save();
   ctx.clearRect(0, 0, w, h);
@@ -782,10 +848,10 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
   }
 
   const padding = { l: 55, r: 14, t: 12, b: 40 };
-  const times = points.map((p) => p.x.getTime());
+  const times = points.map((p) => p.x.getTime()).concat(markers.map((m) => m.x.getTime()));
   const minT = Math.min(...times);
   const maxT = Math.max(...times);
-  const values = points.map((p) => p.y);
+  const values = points.map((p) => p.y).concat(markers.map((m) => m.y));
   const minY = 0;
   const maxY = Math.max(Math.max(...values) * 1.1, warning ? warning * 1.4 : 0.1);
 
@@ -881,6 +947,20 @@ function drawChart(canvas, points, { color, yLabel, warning, valueFormatter, axi
     else ctx.lineTo(x, y);
   });
   ctx.stroke();
+
+  if (markers.length) {
+    ctx.fillStyle = '#d62828';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    markers.forEach((marker) => {
+      const x = scaleX(marker.x.getTime());
+      const y = scaleY(marker.y);
+      ctx.beginPath();
+      ctx.arc(x, y, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    });
+  }
 
   // Axes
   ctx.strokeStyle = '#9aa9bc';
@@ -1040,7 +1120,7 @@ function createDrinkRow(type = 'beer', qty = 1) {
   updateCalcTotal();
 }
 
-function enableHover(canvas, points, options, desiredWidth) {
+function enableHover(canvas, points, options, desiredWidth, markers = []) {
   if (!points.length) return;
   if (canvas._hoverCleanup) {
     canvas._hoverCleanup();
@@ -1050,10 +1130,30 @@ function enableHover(canvas, points, options, desiredWidth) {
     const xPos = evt.clientX - rect.left;
     const w = rect.width || canvas.clientWidth || canvas.width;
     const padding = { l: 55, r: 14, t: 12, b: 40 };
-    const minT = Math.min(...points.map((p) => p.x.getTime()));
-    const maxT = Math.max(...points.map((p) => p.x.getTime()));
+    const allTimes = points.map((p) => p.x.getTime()).concat(markers.map((m) => m.x.getTime()));
+    const minT = Math.min(...allTimes);
+    const maxT = Math.max(...allTimes);
     const ratio = Math.max(0, Math.min(1, (xPos - padding.l) / (w - padding.l - padding.r)));
     const targetT = minT + ratio * (maxT - minT);
+    const values = points.map((p) => p.y).concat(markers.map((m) => m.y));
+    const minY = 0;
+    const maxY = Math.max(Math.max(...values) * 1.1, options.warning ? options.warning * 1.4 : 0.1);
+    const scaleX = (t) => padding.l + ((t - minT) / (maxT - minT || 1)) * (w - padding.l - padding.r);
+    const scaleY = (v) => (canvas.getBoundingClientRect().height || canvas.clientHeight || canvas.height || 260) - padding.b - ((v - minY) / (maxY - minY || 1)) * ((canvas.getBoundingClientRect().height || canvas.clientHeight || canvas.height || 260) - padding.t - padding.b);
+    const yPos = evt.clientY - rect.top;
+    const markerHit = markers.find((marker) => {
+      const dx = xPos - scaleX(marker.x.getTime());
+      const dy = yPos - scaleY(marker.y);
+      return Math.sqrt(dx * dx + dy * dy) <= 9;
+    });
+    if (markerHit) {
+      drawChart(canvas, points, options, {
+        point: markerHit,
+        value: markerHit.label || (options.valueFormatter ? options.valueFormatter(markerHit.y) : markerHit.y.toFixed(2)),
+        time: formatTime(markerHit.x),
+      }, desiredWidth, markers);
+      return;
+    }
     let nearest = points[0];
     let minDiff = Math.abs(points[0].x.getTime() - targetT);
     for (let i = 1; i < points.length; i++) {
@@ -1067,9 +1167,9 @@ function enableHover(canvas, points, options, desiredWidth) {
       point: nearest,
       value: options.valueFormatter ? options.valueFormatter(nearest.y) : nearest.y.toFixed(2),
       time: formatTime(nearest.x),
-    }, desiredWidth);
+    }, desiredWidth, markers);
   };
-  const leaveHandler = () => drawChart(canvas, points, options, null, desiredWidth);
+  const leaveHandler = () => drawChart(canvas, points, options, null, desiredWidth, markers);
   canvas.addEventListener('mousemove', handler);
   canvas.addEventListener('mouseleave', leaveHandler);
   canvas._hoverCleanup = () => {
