@@ -202,6 +202,48 @@ form input[type="checkbox"] {
   min-width: 160px;
 }
 
+.peth-model-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(220px, 260px);
+  gap: 14px;
+  align-items: start;
+  margin-top: 6px;
+}
+
+.peth-model-controls select {
+  width: 100%;
+}
+
+.peth-model-chart {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+}
+
+.mini-chart-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+
+.peth-model-chart canvas {
+  display: block;
+  width: 100%;
+  height: 150px;
+}
+
+.peth-saturation-field.hidden {
+  display: none;
+}
+
+@media (max-width: 680px) {
+  .peth-model-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
 input.grams {
   width: 100px;
   font-family: var(--mono);

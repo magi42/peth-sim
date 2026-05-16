@@ -1,6 +1,6 @@
 // Minimal test harness using Node built-ins (no external deps required).
 const assert = require('assert');
-const { simulate, toUmol } = require('../sim');
+const { simulate, toUmol, pethFormationRateAtBac } = require('../sim');
 
 function approx(actual, expected, tol, message) {
   const diff = Math.abs(actual - expected);
@@ -25,6 +25,7 @@ function runTests() {
   testSingleSession();
   testExtendingHorizon();
   testInitialPeth();
+  testPethFormationModels();
   testSessionOrderIndependence();
   testOverlappingIncrementalSessions();
 
@@ -94,6 +95,14 @@ function testInitialPeth() {
   });
   assert.strictEqual(res.startTime.getTime(), initialDate.getTime(), 'Initial PEth date should start simulation when before drinking');
   approx(toUmol(res.timeline[0].pethNgMl), 0.12, 0.0001, 'Initial PEth should be present at simulation start');
+}
+
+function testPethFormationModels() {
+  approx(pethFormationRateAtBac(11.3, 1, 'saturating'), 11.3, 0.0001, 'Saturating PEth formation should preserve 1‰ rate');
+  approx(pethFormationRateAtBac(11.3, 2, 'saturating'), 16.92, 0.2, 'Saturating PEth formation should match 2‰ measurement scale');
+  approx(pethFormationRateAtBac(11.3, 3, 'saturating'), 20.18, 0.3, 'Saturating PEth formation should match 3‰ measurement scale');
+  assert.ok(pethFormationRateAtBac(11.3, 3, 'saturating') < pethFormationRateAtBac(11.3, 3, 'linear'), 'Saturating model should produce less formation than linear at high BAC');
+  assert.ok(pethFormationRateAtBac(11.3, 3, 'saturating', 10) > pethFormationRateAtBac(11.3, 3, 'saturating'), 'Higher Km should make the saturating model closer to linear at high BAC');
 }
 
 function testSessionOrderIndependence() {

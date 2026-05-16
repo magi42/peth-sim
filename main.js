@@ -1,7 +1,7 @@
 const sessionsEl = document.getElementById('sessions');
 const addSessionBtn = document.getElementById('add-session');
 const form = document.getElementById('sim-form');
-const { simulate: runSim, toUmol: toUmolFn } = window.SimModel;
+const { simulate: runSim, toUmol: toUmolFn, pethFormationRateAtBac: pethFormationRateAtBacFn } = window.SimModel;
 const calcModal = document.getElementById('calc-modal');
 const calcForm = document.getElementById('calc-form');
 const calcClose = document.getElementById('calc-close');
@@ -45,6 +45,11 @@ const DEFAULT_MEAL_PROFILES = {
   heavy: { factor: 0.45, labelKey: 'mealHeavy' },
 };
 let mealProfiles = cloneMealProfiles(DEFAULT_MEAL_PROFILES);
+const PETH_FORMATION_MEASUREMENTS = [
+  { bac: 1, rate: 11.3 },
+  { bac: 2, rate: 16.92 },
+  { bac: 3, rate: 20.18 },
+];
 
 function cloneMealProfiles(profiles) {
   return Object.fromEntries(Object.entries(profiles).map(([key, value]) => [key, { ...value }]));
@@ -134,6 +139,7 @@ form.addEventListener('submit', (e) => {
 
 document.getElementById('more-params').addEventListener('click', () => {
   paramsModal.classList.remove('hidden');
+  requestAnimationFrame(drawPethFormationChart);
   document.getElementById('time-step').focus();
 });
 
@@ -154,6 +160,8 @@ paramsReset.addEventListener('click', () => {
   document.getElementById('time-step').value = 5;
   document.getElementById('peth-half-life').value = 4.5;
   document.getElementById('formation-rate').value = 11.3;
+  document.getElementById('peth-formation-model').value = 'linear';
+  document.getElementById('peth-saturation-km').value = 1.95;
   document.getElementById('elimination-rate').value = 0.15;
   clearInitialPeth();
   document.getElementById('absorption-enabled').checked = true;
@@ -226,6 +234,17 @@ if (absorptionCheckbox) {
     toggleMealSelects(absorptionCheckbox.checked);
   });
 }
+const pethFormationModelSelect = document.getElementById('peth-formation-model');
+if (pethFormationModelSelect) {
+  pethFormationModelSelect.addEventListener('change', () => {
+    togglePethSaturationParams(pethFormationModelSelect.value);
+    drawPethFormationChart();
+  });
+}
+['formation-rate', 'peth-saturation-km'].forEach((id) => {
+  const input = document.getElementById(id);
+  if (input) input.addEventListener('input', drawPethFormationChart);
+});
 
 function toInputValue(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -277,6 +296,8 @@ function serializeAdditionalParams() {
     bloodWater: document.getElementById('use-blood-water').checked,
     absorption: document.getElementById('absorption-enabled').checked,
     pethFormation: parseFloat(document.getElementById('formation-rate').value),
+    pethModel: document.getElementById('peth-formation-model').value,
+    pethKm: parseFloat(document.getElementById('peth-saturation-km').value),
     pethHalfLife: parseFloat(document.getElementById('peth-half-life').value),
   };
   return [
@@ -288,6 +309,8 @@ function serializeAdditionalParams() {
     `bloodWater=${values.bloodWater ? 'on' : 'off'}`,
     `absorption=${values.absorption ? 'on' : 'off'}`,
     `pethFormation=${formatSeriesParam(values.pethFormation)}`,
+    `pethModel=${values.pethModel}`,
+    `pethKm=${formatSeriesParam(values.pethKm)}`,
     `pethHalfLife=${formatSeriesParam(values.pethHalfLife)}d`,
   ].join(' ');
 }
@@ -469,12 +492,14 @@ function parseSeriesParams(tokens) {
     ['maleR', 'maleR', ''],
     ['femaleR', 'femaleR', ''],
     ['pethFormation', 'pethFormation', ''],
+    ['pethKm', 'pethKm', ''],
     ['pethHalfLife', 'pethHalfLife', 'd'],
   ];
   for (const [sourceKey, targetKey, suffix] of numericKeys) {
     if (values[sourceKey] === undefined) continue;
     const value = parseSeriesNumber(values[sourceKey], suffix);
     if (value === null) return { error: true };
+    if (sourceKey === 'pethKm' && value <= 0) return { error: true };
     parsed[targetKey] = value;
   }
   const boolKeys = [['bloodWater', 'bloodWater'], ['absorption', 'absorption']];
@@ -483,6 +508,11 @@ function parseSeriesParams(tokens) {
     const value = parseSeriesBoolean(values[sourceKey]);
     if (value === null) return { error: true };
     parsed[targetKey] = value;
+  }
+  if (values.pethModel !== undefined) {
+    const model = values.pethModel.toLowerCase();
+    if (!['linear', 'saturating'].includes(model)) return { error: true };
+    parsed.pethModel = model;
   }
   return { params: parsed };
 }
@@ -591,8 +621,12 @@ function applySeriesParams(params) {
   if (params.bloodWater !== undefined) document.getElementById('use-blood-water').checked = params.bloodWater;
   if (params.absorption !== undefined) document.getElementById('absorption-enabled').checked = params.absorption;
   if (params.pethFormation !== undefined) document.getElementById('formation-rate').value = formatSeriesParam(params.pethFormation);
+  if (params.pethModel !== undefined) document.getElementById('peth-formation-model').value = params.pethModel;
+  if (params.pethKm !== undefined) document.getElementById('peth-saturation-km').value = formatSeriesParam(params.pethKm);
   if (params.pethHalfLife !== undefined) document.getElementById('peth-half-life').value = formatSeriesParam(params.pethHalfLife);
   toggleMealSelects(document.getElementById('absorption-enabled').checked);
+  togglePethSaturationParams(document.getElementById('peth-formation-model').value);
+  drawPethFormationChart();
 }
 
 function applySeriesMealFactors(factors) {
@@ -633,6 +667,108 @@ function toggleMealSelects(enabled) {
   });
 }
 
+function togglePethSaturationParams(model) {
+  const field = document.getElementById('peth-saturation-field');
+  if (!field) return;
+  field.classList.toggle('hidden', model !== 'saturating');
+}
+
+function drawPethFormationChart() {
+  const canvas = document.getElementById('peth-formation-chart');
+  if (!canvas || typeof pethFormationRateAtBacFn !== 'function') return;
+  const rateInput = parseFloat(document.getElementById('formation-rate')?.value);
+  const rateAt1 = Number.isFinite(rateInput) && rateInput > 0 ? rateInput : 11.3;
+  const model = document.getElementById('peth-formation-model')?.value || 'linear';
+  const kmInput = parseFloat(document.getElementById('peth-saturation-km')?.value);
+  const km = Number.isFinite(kmInput) && kmInput > 0 ? kmInput : 1.95;
+  const dpr = window.devicePixelRatio || 1;
+  const displayW = canvas.getBoundingClientRect().width || canvas.clientWidth || 260;
+  const displayH = canvas.getBoundingClientRect().height || canvas.clientHeight || 150;
+  if (canvas.width !== Math.floor(displayW * dpr) || canvas.height !== Math.floor(displayH * dpr)) {
+    canvas.width = displayW * dpr;
+    canvas.height = displayH * dpr;
+  }
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, displayW, displayH);
+
+  const pad = { l: 34, r: 10, t: 10, b: 28 };
+  const maxX = 4;
+  const curve = [];
+  for (let i = 0; i <= 80; i++) {
+    const bac = (maxX * i) / 80;
+    curve.push({ bac, rate: pethFormationRateAtBacFn(rateAt1, bac, model, km) });
+  }
+  const maxY = Math.max(25, ...curve.map((p) => p.rate), ...PETH_FORMATION_MEASUREMENTS.map((p) => p.rate)) * 1.1;
+  const x = (bac) => pad.l + (bac / maxX) * (displayW - pad.l - pad.r);
+  const y = (rate) => displayH - pad.b - (rate / maxY) * (displayH - pad.t - pad.b);
+
+  ctx.strokeStyle = '#d6dee8';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, displayH - pad.b);
+  ctx.lineTo(displayW - pad.r, displayH - pad.b);
+  ctx.stroke();
+
+  ctx.fillStyle = '#667085';
+  ctx.font = '11px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (let tick = 0; tick <= maxX; tick += 1) {
+    const tx = x(tick);
+    ctx.strokeStyle = '#edf1f5';
+    ctx.beginPath();
+    ctx.moveTo(tx, pad.t);
+    ctx.lineTo(tx, displayH - pad.b);
+    ctx.stroke();
+    ctx.fillText(String(tick), tx, displayH - pad.b + 6);
+  }
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  const yTicks = [0, Math.round(maxY / 2), Math.round(maxY)];
+  yTicks.forEach((tick) => {
+    const ty = y(tick);
+    ctx.strokeStyle = '#edf1f5';
+    ctx.beginPath();
+    ctx.moveTo(pad.l, ty);
+    ctx.lineTo(displayW - pad.r, ty);
+    ctx.stroke();
+    ctx.fillText(String(tick), pad.l - 5, ty);
+  });
+
+  ctx.strokeStyle = model === 'saturating' ? '#2f9e44' : '#1c7ed6';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  curve.forEach((point, idx) => {
+    if (idx === 0) ctx.moveTo(x(point.bac), y(point.rate));
+    else ctx.lineTo(x(point.bac), y(point.rate));
+  });
+  ctx.stroke();
+
+  PETH_FORMATION_MEASUREMENTS.forEach((point) => {
+    ctx.fillStyle = '#d9480f';
+    ctx.beginPath();
+    ctx.arc(x(point.bac), y(point.rate), 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+
+  ctx.fillStyle = '#475467';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText('BAC ‰', displayW - pad.r, displayH - 2);
+  ctx.save();
+  ctx.translate(10, pad.t + 8);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('ng/mL/h', 0, 0);
+  ctx.restore();
+}
+
 function updateDurations() {
   const t = translations[currentLang] || translations.en;
   document.querySelectorAll('.session-row').forEach((row) => {
@@ -666,6 +802,9 @@ function getParams() {
   const age = parseInt(document.getElementById('age').value, 10);
   const decayHalfLifeDays = parseFloat(document.getElementById('peth-half-life').value) || 4.5;
   const formationRate = parseFloat(document.getElementById('formation-rate').value) || 11.3;
+  const pethFormationModel = document.getElementById('peth-formation-model').value || 'linear';
+  const pethKmInput = parseFloat(document.getElementById('peth-saturation-km').value);
+  const pethFormationKmPermille = Number.isFinite(pethKmInput) && pethKmInput > 0 ? pethKmInput : 1.95;
   const eliminationRate = parseFloat(document.getElementById('elimination-rate').value) || 0.15;
   const stepMinutes = parseFloat(document.getElementById('time-step').value) || 5;
   const maleR = parseFloat(document.getElementById('male-r').value) || 0.68;
@@ -687,7 +826,7 @@ function getParams() {
     const absFactor = (mealProfiles[absProfile] && mealProfiles[absProfile].factor) || 1;
     return { start, end, grams, ml, absProfile, absFactor, useEndTime };
   }).filter((s) => !Number.isNaN(s.start.getTime()) && s.grams > 0.0 && (!s.useEndTime || (s.end && !Number.isNaN(s.end.getTime()) && s.end > s.start)));
-  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, eliminationRatePermillePerHour: eliminationRate, initialPethDate, initialPethUmol: Number.isFinite(initialPethLevel) ? initialPethLevel : 0, absorptionEnabled, useBloodWater, maleR, femaleR };
+  return { sex, weight, age, sessions, decayHalfLifeDays, stepMinutes, formationRateNgPerMlPerHourAt1Permille: formationRate, pethFormationModel, pethFormationKmPermille, eliminationRatePermillePerHour: eliminationRate, initialPethDate, initialPethUmol: Number.isFinite(initialPethLevel) ? initialPethLevel : 0, absorptionEnabled, useBloodWater, maleR, femaleR };
 }
 
 function getMealProfileSettings() {
@@ -1328,10 +1467,17 @@ const setText = (id, text) => {
   setText('hdr-abv', t.hdrAbv);
   setText('hdr-doses', t.hdrDoses);
   setText('formation-rate-label', t.formationRateLabel);
+  setText('peth-formation-model-label', t.pethFormationModelLabel || 'PEth formation model');
+  setText('peth-formation-linear', t.pethFormationLinear || 'Linear');
+  setText('peth-formation-saturating', t.pethFormationSaturating || 'Saturating');
+  setText('peth-saturation-km-label', t.pethSaturationKmLabel || 'Saturation Km (‰)');
+  setText('peth-formation-chart-title', t.pethFormationChartTitle || 'BAC / PEth formation');
   setText('elimination-rate-label', t.eliminationRateLabel);
   setText('time-step-note', t.timeStepNote);
   setText('half-note', t.halfNote);
   setText('formation-rate-note', t.formationRateNote);
+  setText('peth-formation-model-note', t.pethFormationModelNote || '');
+  setText('peth-saturation-km-note', t.pethSaturationKmNote || '');
   setText('elimination-rate-note', t.eliminationRateNote);
   setText('male-r-label', t.maleRLabel || 'Widmark r (male)');
   setText('female-r-label', t.femaleRLabel || 'Widmark r (female)');
@@ -1398,6 +1544,8 @@ const setText = (id, text) => {
     if (label) label.textContent = t.absProfileLabel;
   });
   toggleMealSelects(document.getElementById('absorption-enabled')?.checked !== false);
+  togglePethSaturationParams(document.getElementById('peth-formation-model')?.value || 'linear');
+  drawPethFormationChart();
   // Update existing drink rows' option texts
   document.querySelectorAll('.drink-row .drink-type option').forEach((opt) => {
     const value = opt.value;

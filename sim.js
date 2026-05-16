@@ -2,6 +2,7 @@ const PETH_MW_G_PER_MOL = 704.6; // Molecular weight of PEth 16:0/18:1
 const BLOOD_WATER_FACTOR = 1.055; // kg blood water per L blood; applied to Widmark volume if enabled
 const BASE_ABS_K_PER_H = 2.0; // Empty stomach first-order absorption rate (~t1/2 0.35 h)
 const BASE_ABS_CAP_G_PER_H = 80; // Upper cap for absorption on empty stomach
+const PETH_FORMATION_SATURATION_KM_PERMILLE = 1.95; // Fits 1-3‰ formation-rate measurements with a saturating curve
 
 function simulate({
   sex,
@@ -11,6 +12,8 @@ function simulate({
   decayHalfLifeDays = 4.5,
   stepMinutes = 5,
   formationRateNgPerMlPerHourAt1Permille = 11.3,
+  pethFormationModel = 'linear',
+  pethFormationKmPermille = PETH_FORMATION_SATURATION_KM_PERMILLE,
   eliminationRatePermillePerHour = 0.15,
   initialPethDate = null,
   initialPethUmol = 0,
@@ -115,7 +118,7 @@ function simulate({
     const bacPermille = bloodGrams / distribVolumeKg;
 
     // PEth synthesis/decay
-    const formation = (formationRateNgPerMlPerHourAt1Permille * bacPermille) * (stepMin / 60);
+    const formation = pethFormationRateAtBac(formationRateNgPerMlPerHourAt1Permille, bacPermille, pethFormationModel, pethFormationKmPermille) * (stepMin / 60);
     const decay = i === 0 ? 0 : peth * (1 - Math.exp(-decayKPerHour * (stepMin / 60)));
     peth = Math.max(0, peth + formation - decay);
 
@@ -138,6 +141,8 @@ function simulate({
       r,
       elimPermillePerHour,
       formationRateNgPerMlPerHourAt1Permille,
+      pethFormationModel,
+      pethFormationKmPermille,
       eliminationRatePermillePerHour,
       initialPethDate: hasInitialPeth ? initialPethDate : null,
       initialPethUmol: hasInitialPeth ? initialPethUmol : 0,
@@ -159,11 +164,21 @@ function toUmol(ngPerMl) {
   return ngPerMl / PETH_MW_G_PER_MOL;
 }
 
+function pethFormationRateAtBac(rateAt1Permille, bacPermille, model = 'linear', kmPermille = PETH_FORMATION_SATURATION_KM_PERMILLE) {
+  if (model === 'saturating') {
+    const km = Number.isFinite(kmPermille) && kmPermille > 0 ? kmPermille : PETH_FORMATION_SATURATION_KM_PERMILLE;
+    return rateAt1Permille * bacPermille * (km + 1) / (km + bacPermille);
+  }
+  return rateAt1Permille * bacPermille;
+}
+
 const SimModel = {
   simulate,
   toUmol,
+  pethFormationRateAtBac,
   PETH_MW_G_PER_MOL,
   BLOOD_WATER_FACTOR,
+  PETH_FORMATION_SATURATION_KM_PERMILLE,
 };
 
 if (typeof module !== 'undefined') {
